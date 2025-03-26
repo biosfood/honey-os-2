@@ -8,6 +8,7 @@
 #include <syscall.h>
 #include <util.h>
 #include <process.h>
+#include <file.h>
 
 void *initrd;
 uint32_t initrdSize;
@@ -62,57 +63,6 @@ Process *newProcess(Container *container) {
     return process;
 }
 
-extern void *functionsStart;
-extern void *functionsEnd;
-
-ProcessThread *processLoadELF(Process *process, void *elfStart) {
-    // use this function ONLY to load the initrd/loader program(maybe also the
-    // ELF loader service)!
-    ElfHeader *header = elfStart;
-    ProgramHeader *programHeader =
-            elfStart + header->programHeaderTablePosition;
-    // fire load event
-    // fireEvent(loadInitrdEvent, service->nameHash, 0);
-    void *current = &functionsStart;
-    for (uint32_t i = 0; i < 3; i++) {
-        // todo: make this unwritable!
-        sharePage(&process->memory_information, current, current);
-        current += 0x1000;
-    }
-    // reserve first few pages to hopefully catch NULL pointers correctly
-    reservePagesCount(&(process->memory_information), 0, 0x10);
-    for (uint32_t i = 0; i < header->programHeaderEntryCount; i++) {
-        if (hlib && programHeader->virtualAddress >= 0xF0000000) {
-            goto end;
-        }
-        for (uint32_t page = 0; page < programHeader->segmentMemorySize;
-             page += 0x1000) {
-            void *data = malloc(0x1000);
-            if (programHeader->segmentFileSize > page) {
-                memcpy(elfStart + programHeader->dataOffset + page, data,
-                       MIN(0x1000, programHeader->segmentFileSize - page));
-            }
-            sharePage(&process->memory_information, data,
-                      PTR(programHeader->virtualAddress + page));
-        }
-    end:
-        programHeader = (void *) programHeader + header->programHeaderEntrySize;
-    }
-    ProcessThread *thread = malloc(sizeof(ProcessThread));
-    memset(thread, 0, sizeof(ProcessThread));
-    thread->id = id_counter++;
-    thread->process = process;
-    listAdd(&(process->threads), thread);
-    thread->function = 0;
-    thread->esp = malloc(0x1000);
-    sharePage(&process->memory_information, thread->esp, thread->esp);
-    thread->esp += 0x1000 - 0x10;
-    *(void **) thread->esp = PTR(header->entryPosition);
-    *(void **) (thread->esp + 0x4) = &runEnd;
-    listAdd(&threads_to_process, thread);
-
-    return thread;
-}
 
 bool shutdown = false;
 
@@ -124,6 +74,14 @@ void kernelMain(void *multibootInfo) {
     // TODO: read file to describe a container
     Container *container = newContainer();
     Process *init_process = newProcess(container);
+
+    PipeFile *file = malloc(sizeof(PipeFile));
+    file->name = "/dev/1";
+    file->type = FILE_TYPE_PIPE;
+    file->queue = NULL;
+    file->blockedReadingThread = NULL;
+    listAdd(&container->vfs, file);
+
     void *data = findTarFile(initrd, initrdSize, "initrd/init");
     processLoadELF(init_process, data);
 

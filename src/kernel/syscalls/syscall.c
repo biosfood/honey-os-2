@@ -76,6 +76,9 @@ extern uintptr_t handleGetPhysicalSyscall;
 extern uintptr_t handleForkSyscall;
 extern uintptr_t handleFreeSyscall;
 extern uintptr_t handlePthreadCreateSyscall;
+extern uintptr_t handleOpenSyscall;
+extern uintptr_t handleReadSyscall;
+extern uintptr_t handleWriteSyscall;
 
 void (*syscallHandlers[])(ProcessThread *) = {
     0,
@@ -104,6 +107,9 @@ void (*syscallHandlers[])(ProcessThread *) = {
     (void *) &handleForkSyscall,
     (void *) &handleFreeSyscall,
     (void *) &handlePthreadCreateSyscall,
+    (void *) &handleOpenSyscall,
+    (void *) &handleReadSyscall,
+    (void *) &handleWriteSyscall,
 };
 
 extern uint32_t thread_return_value, thread_cr3, thread_esp;

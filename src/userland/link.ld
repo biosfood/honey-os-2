@@ -23,9 +23,4 @@ SECTIONS {
         allocationData = .;
         . += 4 * 12;
     }
-
-    . = 0xFF000000;
-    .hlib (NOLOAD) : {
-        *(.hlib)
-    }
 }

@@ -54,7 +54,8 @@ extern void *getPhysicalAddressKernel(void *address);
 extern void *getPhysicalAddress(PageDirectoryEntry *pageDirectory,
                                 void *address);
 extern uint32_t findPage(PagingInfo *info);
-extern void *mapTemporary(void *address);
+extern void *mapTemporaryA(void *address);
+extern void *mapTemporaryB(void *address);
 extern void *getPagesCount(uint32_t size);
 
 extern uint32_t findMultiplePages(PagingInfo *info, uint32_t size);

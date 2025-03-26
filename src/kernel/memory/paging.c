@@ -6,7 +6,7 @@ PageTableEntry *kernelCodePageTable, *kernelDataPageTable;
 
 PagingInfo *kernelPhysicalPages, *kernelVirtualPages;
 
-void *temporaryPage;
+void *temporaryPageA, *temporaryPageB;
 
 void reservePage(PagingInfo *info, uint32_t pageId);
 
@@ -28,19 +28,27 @@ void *kernelGetVirtualAddress(void *_address) {
     return 0;
 }
 
-void *mapTemporary(void *physical) {
+void *mapTemporaryA(void *physical) {
     kernelDataPageTable[3].targetAddress = PAGE_ID(physical);
     kernelDataPageTable[3].writable = 1;
     kernelDataPageTable[3].present = 1;
     invalidatePage(0xFF803);
-    return temporaryPage + PAGE_OFFSET(physical);
+    return temporaryPageA + PAGE_OFFSET(physical);
+}
+
+void *mapTemporaryB(void *physical) {
+    kernelDataPageTable[4].targetAddress = PAGE_ID(physical);
+    kernelDataPageTable[4].writable = 1;
+    kernelDataPageTable[4].present = 1;
+    invalidatePage(0xFF804);
+    return temporaryPageB + PAGE_OFFSET(physical);
 }
 
 void *getPhysicalAddress(PageDirectoryEntry *pageDirectory, void *address) {
     VirtualAddress *virtual = (void *)&address;
     uint32_t pageTableId =
         pageDirectory[virtual->pageDirectoryIndex].pageTableID;
-    PageTableEntry *pageTable = mapTemporary(ADDRESS(pageTableId));
+    PageTableEntry *pageTable = mapTemporaryA(ADDRESS(pageTableId));
     uint32_t pageBase = pageTable[virtual->pageTableIndex].targetAddress;
     return ADDRESS(pageBase) + PAGE_OFFSET(address);
 }
@@ -76,7 +84,9 @@ void reservePagesUntilPhysical(const uint32_t endPageId) {
     buffer += 0x1000;
     kernelCodePageTable = buffer;
     buffer += 0x1000;
-    temporaryPage = buffer;
+    temporaryPageA = buffer;
+    buffer += 0x1000;
+    temporaryPageB = buffer;
     buffer += 0x1000;
     kernelPhysicalPages = buffer;
     buffer += sizeof(PagingInfo);
@@ -154,7 +164,7 @@ void mapPage(PagingInfo *info, void *physical, void *virtual, bool userPage,
     if (!directory[address->pageDirectoryIndex].present) {
         uint32_t newPageTable = findPage(kernelPhysicalPages);
         reservePage(kernelPhysicalPages, newPageTable);
-        void *temporary = mapTemporary(ADDRESS(newPageTable));
+        void *temporary = mapTemporaryA(ADDRESS(newPageTable));
         memset(temporary, 0, 0x1000);
         directory[address->pageDirectoryIndex].pageTableID = newPageTable;
         directory[address->pageDirectoryIndex].present = 1;
@@ -163,7 +173,7 @@ void mapPage(PagingInfo *info, void *physical, void *virtual, bool userPage,
     }
     void *pageTablePhysical =
         ADDRESS(directory[address->pageDirectoryIndex].pageTableID);
-    void *temporary = mapTemporary(pageTablePhysical);
+    void *temporary = mapTemporaryA(pageTablePhysical);
     PageTableEntry *pageTable = temporary;
     pageTable[address->pageTableIndex].targetAddress = PAGE_ID(physical);
     pageTable[address->pageTableIndex].present = 1;
@@ -214,7 +224,7 @@ void unmapSinglePageFrom(PagingInfo *info, void *pageAddress) {
     PageDirectoryEntry *directory = info->pageDirectory;
     void *pageTablePhysical =
         ADDRESS(directory[address->pageDirectoryIndex].pageTableID);
-    void *temporary = mapTemporary(pageTablePhysical);
+    void *temporary = mapTemporaryA(pageTablePhysical);
     PageTableEntry *pageTable = temporary;
     pageTable[address->pageTableIndex].targetAddress = 0;
     pageTable[address->pageTableIndex].present = 0;
@@ -275,7 +285,7 @@ void freePageFrom(PagingInfo *info, void *address) {
         fine = pageId % 32;
         fineBit = 1 << fine;
         markPageFree(info, coarse, fine, fineBit);
-        PageTableEntry *pageTable = mapTemporary(
+        PageTableEntry *pageTable = mapTemporaryA(
             ADDRESS(info->pageDirectory[PAGE_ID(pageId)].pageTableID));
         uint32_t physicalPageId = pageTable[PAGE_OFFSET(pageId)].targetAddress;
         uint32_t physicalFine = physicalPageId % 32;

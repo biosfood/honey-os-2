@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 
 #define PTR(x) ((void *)(uintptr_t)(x))
 #define U32(x) ((uint32_t)(uintptr_t)(x))
@@ -31,6 +32,9 @@ typedef enum {
     SYS_FORK = 23,
     SYS_FREE_PAGE = 24,
     SYS_PTHREAD_CREATE = 25,
+    SYS_OPEN = 26,
+    SYS_READ =  27,
+    SYS_WRITE = 28,
 } SyscallIds;
 
 uint32_t syscall(uint32_t function, uint32_t parameter0, uint32_t parameter1,
@@ -90,12 +94,36 @@ int pthread_create(void *thread, void *attr, void*(*start_routine)(void*), void 
     return syscall(SYS_PTHREAD_CREATE, U32(thread), U32(attr), U32(start_routine), U32(arg));
 }
 
+int open(const char *path, int oflag) {
+    return syscall(SYS_OPEN, U32(path), oflag, 0,0);
+}
+
+uint32_t read(int filedes, void *buffer, size_t nbyte) {
+    return syscall(SYS_READ, filedes, U32(buffer), nbyte,0);
+}
+
+uint32_t write(int filedes, const void *buffer, size_t nbyte) {
+    return syscall(SYS_WRITE, filedes, U32(buffer), nbyte,0);
+}
+
+
 int test() {
-    writeBulk("From the test function\n");
-    return 0;
+    uint32_t fd = open("/dev/1", 0);
+    char buffer = 'X';
+    while (1) {
+        uint32_t count = read(fd, &buffer, 1);
+        // parallelOut('x',0);
+        // buffer = 'a';
+        if (count == 1) {
+            parallelOut(buffer, 0);
+        }
+    }
 }
 
 int main() {
-    writeBulk("Hello World!\n");
+    const int fd = open("/dev/1", 0);
     pthread_create(0, 0, (void*) test, 0);
+    writeBulk("Hello World!\n");
+    char *message = "This is a test\n";
+    write(fd, message, 15);
 }

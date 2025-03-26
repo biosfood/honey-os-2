@@ -50,5 +50,6 @@ extern uint32_t id_counter;
 extern void *runEnd;
 
 extern void processThread(ProcessThread *thread);
+extern ProcessThread *processLoadELF(Process *process, void *elfStart);
 
 #endif //PROCESS_H

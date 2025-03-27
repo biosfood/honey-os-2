@@ -37,36 +37,6 @@ typedef enum {
     SYS_WRITE = 28,
 } SyscallIds;
 
-uint32_t syscall(uint32_t function, uint32_t parameter0, uint32_t parameter1,
-                 uint32_t parameter2, uint32_t parameter3) {
-    uint32_t esp;
-    asm("push %%eax" ::"a"(&&end)); // end: return address
-    asm("mov %%esp, %%eax" : "=a"(esp));
-    asm("sysenter\n"
-        :
-        : "a"(function), "b"(parameter0), "c"(parameter1), "d"(parameter2),
-          "S"(parameter3), "D"(esp));
-// eax is set by the kernel as the return value
-end:
-    // the 0x1C comes from the number of parameters / local variables do handle
-    // this function with care or it will break everything
-    asm("add $0x1C, %%esp\n"
-        "pop %%ebp\n"
-        "ret" ::);
-    // don't go here! ret returns with the correct value
-    return 0;
-}
-
-uint32_t ioIn(uint16_t port, uint8_t size) {
-    return syscall(SYS_IO_IN, size, port, 0, 0);
-}
-
-
-
-void ioOut(uint16_t port, uint32_t value, uint8_t size) {
-    syscall(SYS_IO_OUT, size, port, value, 0);
-}
-
 void parallelOut(uint32_t data, uint32_t dataLength) {
     if (data == '\n') {
         parallelOut('\r', 0);
@@ -105,7 +75,6 @@ uint32_t read(int filedes, void *buffer, size_t nbyte) {
 uint32_t write(int filedes, const void *buffer, size_t nbyte) {
     return syscall(SYS_WRITE, filedes, U32(buffer), nbyte,0);
 }
-
 
 int test() {
     uint32_t fd = open("/dev/1", 0);

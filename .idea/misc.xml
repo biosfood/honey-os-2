@@ -4,17 +4,17 @@
   <component name="MakefileSettings">
     <option name="linkedExternalProjectsSettings">
       <MakefileProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/src/userland" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$/src/hlib" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$/src/userland" />
+            <option value="$PROJECT_DIR$/src/hlib" />
           </set>
         </option>
         <option name="version" value="2" />
       </MakefileProjectSettings>
     </option>
   </component>
-  <component name="MakefileWorkspace" PROJECT_DIR="$PROJECT_DIR$/src/userland">
+  <component name="MakefileWorkspace" PROJECT_DIR="$PROJECT_DIR$/src/hlib">
     <contentRoot DIR="$PROJECT_DIR$" />
   </component>
 </project>

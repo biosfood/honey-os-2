@@ -14,7 +14,7 @@ BUILD_FOLDER = build
 SOURCE_FILES := $(shell find src/kernel -name *.c -or -name *.asm -or -name *.s)
 OBJS := $(SOURCE_FILES:%=$(BUILD_FOLDER)/%.o)
 
-run: build initrd hlib userPrograms $(IMAGE_FILE)
+run: build hlib userPrograms $(IMAGE_FILE)
 	@echo "starting qemu"
 	@$(EMU) $(EMUFLAGS)
 
@@ -49,10 +49,10 @@ $(BUILD_FOLDER)/%.s.o: %.s
 	@mkdir -p $(dir $@)
 	@$(CC) $(CCFLAGS) -r $< -o $@
 
-userPrograms:
+userPrograms: initrd
 	@make --silent -C src/userland
 
-hlib:
+hlib: initrd
 	@make --silent -C src/hlib
 
 clean:

@@ -10,9 +10,12 @@ BUILD_FOLDER = build
 SOURCE_FILES := $(shell find . -name "*.c" -or -name "*.asm")
 OBJS := $(SOURCE_FILES:%=$(BUILD_FOLDER)/%.o)
 
+all: ../../initrd/hlib
+
 ../../initrd/hlib: $(OBJS)
 	@echo "linking the honey OS c libary"
 	@$(LD) $(LD_FLAGS) -o ../../build/hlib.o $(OBJS) -T link.ld -r
+	@$(LD) $(LD_FLAGS) -o ../../build/hlib.a $(OBJS) -r
 	@$(LD) $(LD_FLAGS) -o $@ $(OBJS) -T link.ld
 
 $(BUILD_FOLDER)/%.asm.o: %.asm

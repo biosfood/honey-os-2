@@ -38,6 +38,7 @@ int test() {
 }
 
 int main() {
+    mkfifo("/dev/1");
     const int fd = open("/dev/1", 0);
     pthread_create(0, 0, (void*) test, 0);
     writeBulk("Hello World!\n");

@@ -12,5 +12,6 @@ typedef int32_t ssize_t;
 
 typedef size_t pthread_t;
 typedef size_t pthread_attr_t;
+typedef size_t mode_t;
 
 #endif //TYPES_H

@@ -53,13 +53,6 @@ void kernelMain(void *multibootInfo) {
     Container *container = newContainer();
     Process *init_process = newProcess(container);
 
-    PipeFile *file = malloc(sizeof(PipeFile));
-    file->name = "/dev/1";
-    file->type = FILE_TYPE_PIPE;
-    file->queue = NULL;
-    file->blockedReadingThread = NULL;
-    listAdd(&container->vfs, file);
-
     void *data = findTarFile(initrd, initrdSize, "initrd/init");
     processLoadELF(init_process, data);
 

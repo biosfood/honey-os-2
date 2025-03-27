@@ -78,6 +78,7 @@ extern uintptr_t handlePthreadCreateSyscall;
 extern uintptr_t handleOpenSyscall;
 extern uintptr_t handleReadSyscall;
 extern uintptr_t handleWriteSyscall;
+extern uintptr_t handleMkFifoSyscall;
 
 void (*syscallHandlers[])(ProcessThread *) = {
     0,
@@ -109,6 +110,7 @@ void (*syscallHandlers[])(ProcessThread *) = {
     (void *) &handleOpenSyscall,
     (void *) &handleReadSyscall,
     (void *) &handleWriteSyscall,
+    (void *) &handleMkFifoSyscall,
 };
 
 extern uint32_t thread_return_value, thread_cr3, thread_esp;

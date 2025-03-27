@@ -72,6 +72,7 @@ ProcessThread *processLoadELF(Process *process, void *elfStart) {
 
 FileDescriptor *allocateFileDescriptor(Process *process) {
     FileDescriptor *descriptor = malloc(sizeof(FileDescriptor));
+    descriptor->id = 0;
 
     ListElement *list_element = malloc(sizeof(ListElement));
     list_element->data = descriptor;
@@ -86,11 +87,12 @@ FileDescriptor *allocateFileDescriptor(Process *process) {
     } else {
         ListElement *previous = process->openFileHandles;
         ListElement *current = process->openFileHandles->next;
-        while (current && descriptor->id > ((FileDescriptor *) current->data)->id) {
+        while (current && descriptor->id == ((FileDescriptor *) current->data)->id) {
             previous = current;
             current = current->next;
             descriptor->id++;
         }
+        descriptor->id++;
         previous->next = list_element;
         if (current) {
             list_element->next = current;

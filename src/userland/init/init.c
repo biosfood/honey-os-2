@@ -1,41 +1,7 @@
+#include <fnctl.h>
+#include <hlib.h>
+#include <pthread.h>
 #include <stdint.h>
-#include <stddef.h>
-
-#define PTR(x) ((void *)(uintptr_t)(x))
-#define U32(x) ((uint32_t)(uintptr_t)(x))
-
-
-typedef enum {
-    SYS_RUN = 0,
-    SYS_CREATE_FUNCTION = 1,
-    SYS_REQUEST = 2,
-    SYS_IO_IN = 3,
-    SYS_IO_OUT = 4,
-    SYS_LOAD_INITRD = 5,
-    SYS_GET_SERVICE = 6,
-    SYS_GET_FUNCTION = 7,
-    SYS_SUBSCRIBE_INTERRUPT = 8,
-    SYS_CREATE_EVENT = 9,
-    SYS_GET_EVENT = 10,
-    SYS_FIRE_EVENT = 11,
-    SYS_SUBSCRIBE_EVENT = 12,
-    SYS_GET_SERVICE_ID = 13,
-    SYS_INSERT_STRING = 14,
-    SYS_GET_STRING_LENGTH = 15,
-    SYS_READ_STRING = 16,
-    SYS_DISCARD_STRING = 17,
-    SYS_REQUEST_MEMORY = 18,
-    SYS_LOOKUP_SYMBOL = 19,
-    SYS_STACK_CONTAINS = 20,
-    SYS_AWAIT = 21,
-    SYS_GET_PHYSICAL = 22,
-    SYS_FORK = 23,
-    SYS_FREE_PAGE = 24,
-    SYS_PTHREAD_CREATE = 25,
-    SYS_OPEN = 26,
-    SYS_READ =  27,
-    SYS_WRITE = 28,
-} SyscallIds;
 
 void parallelOut(uint32_t data, uint32_t dataLength) {
     if (data == '\n') {
@@ -60,29 +26,11 @@ void writeBulk(char *buffer) {
     }
 }
 
-int pthread_create(void *thread, void *attr, void*(*start_routine)(void*), void *restrict arg) {
-    return syscall(SYS_PTHREAD_CREATE, U32(thread), U32(attr), U32(start_routine), U32(arg));
-}
-
-int open(const char *path, int oflag) {
-    return syscall(SYS_OPEN, U32(path), oflag, 0,0);
-}
-
-uint32_t read(int filedes, void *buffer, size_t nbyte) {
-    return syscall(SYS_READ, filedes, U32(buffer), nbyte,0);
-}
-
-uint32_t write(int filedes, const void *buffer, size_t nbyte) {
-    return syscall(SYS_WRITE, filedes, U32(buffer), nbyte,0);
-}
-
 int test() {
-    uint32_t fd = open("/dev/1", 0);
+    int fd = open("/dev/1", 0);
     char buffer = 'X';
     while (1) {
-        uint32_t count = read(fd, &buffer, 1);
-        // parallelOut('x',0);
-        // buffer = 'a';
+        const uint32_t count = read(fd, &buffer, 1);
         if (count == 1) {
             parallelOut(buffer, 0);
         }

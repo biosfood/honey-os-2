@@ -30,8 +30,13 @@ typedef enum {
     SYS_GET_PHYSICAL = 22,
     SYS_FORK = 23,
     SYS_FREE_PAGE = 24,
+    SYS_PTHREAD_CREATE = 25,
+    SYS_OPEN = 26,
+    SYS_READ = 27,
+    SYS_WRITE = 28,
 } SyscallIds;
 
-extern uint32_t getFunction(uint32_t module, char *name);
+extern uint32_t syscall(uint32_t function, uint32_t parameter0, uint32_t parameter1,
+                        uint32_t parameter2, uint32_t parameter3);
 
 #endif

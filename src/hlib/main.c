@@ -1,6 +1,7 @@
-#include "include/syscalls.h"
-#include <stdint.h>
 #include <hlib.h>
+
+#include "include/syscalls.h"
+
 
 uint32_t syscall(uint32_t function, uint32_t parameter0, uint32_t parameter1,
                  uint32_t parameter2, uint32_t parameter3) {
@@ -20,27 +21,6 @@ end:
         "ret" ::);
     // don't go here! ret returns with the correct value
     return 0;
-}
-
-uint32_t loadFromInitrd(char *name) {
-    uintptr_t id = insertString(name);
-    uint32_t service = syscall(SYS_GET_SERVICE, id, 0, 0, 0);
-    if (!service) {
-        return syscall(SYS_LOAD_INITRD, id, 1, 0, 0);
-    }
-    return service;
-}
-
-uint32_t loadFromInitrdUninitialized(char *name) {
-    uintptr_t id = insertString(name);
-    return syscall(SYS_LOAD_INITRD, id, 0, 0, 0);
-}
-
-void requestName(char *service, char *provider, uintptr_t data1,
-                 uintptr_t data2) {
-    uint32_t serviceId = getService(service);
-    uint32_t providerId = getFunction(serviceId, provider);
-    request(serviceId, providerId, data1, data2);
 }
 
 void *requestMemory(uint32_t pageCount, void *targetAddress,
@@ -63,10 +43,6 @@ void memset(void *_target, uint8_t byte, uint32_t size) {
         *target = byte;
         target++;
     }
-}
-
-bool stackContains(uint32_t serviceId) {
-    return syscall(SYS_STACK_CONTAINS, serviceId, 0, 0, 0);
 }
 
 #define REQUEST1(returnType, functionName, service, function)                  \

@@ -55,7 +55,6 @@ extern uintptr_t handleCreateFunctionSyscall;
 extern uintptr_t handleRequestSyscall;
 extern uintptr_t handleIOInSyscall;
 extern uintptr_t handleIOOutSyscall;
-extern uintptr_t handleLoadFromInitrdSyscall;
 extern uintptr_t handleGetServiceSyscall;
 extern uintptr_t handleGetFunctionSyscall;
 extern uintptr_t handleSubscribeInterruptSyscall;
@@ -86,7 +85,7 @@ void (*syscallHandlers[])(ProcessThread *) = {
     (void *) &handleRequestSyscall,
     (void *) &handleIOInSyscall,
     (void *) &handleIOOutSyscall,
-    (void *) &handleLoadFromInitrdSyscall,
+    NULL,
     (void *) &handleGetServiceSyscall,
     (void *) &handleGetFunctionSyscall,
     (void *) &handleSubscribeInterruptSyscall,

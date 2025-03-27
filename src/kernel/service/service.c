@@ -13,7 +13,6 @@ extern void(runFunction)();
 
 ListElement *services, *threads_to_process;
 // Thread *current_thread;
-extern Service *hlib;
 extern Event *loadInitrdEvent;
 
 void resume(Thread *thread) {
@@ -22,74 +21,6 @@ void resume(Thread *thread) {
     }
     // current_thread = thread;
     runFunction();
-}
-
-Service *loadElf(void *elfStart, char *serviceName) {
-    // use this function ONLY to load the initrd/loader program(maybe also the
-    // ELF loader service)!
-    ElfHeader *header = elfStart;
-    ProgramHeader *programHeader =
-        elfStart + header->programHeaderTablePosition;
-    Service *service = malloc(sizeof(Service));
-    memset(service, 0, sizeof(Service));
-    service->pagingInfo.pageDirectory = malloc(0x1000);
-    service->name = serviceName;
-    service->nameHash = insertString(serviceName);
-    // TODO: better ids
-    service->id = listCount(services);
-    // fire load event
-    fireEvent(loadInitrdEvent, service->nameHash, 0);
-    void *current = &functionsStart;
-    if (hlib) {
-        service->pagingInfo.pageDirectory[0x3FC].pageTableID =
-            hlib->pagingInfo.pageDirectory[0x3FC].pageTableID;
-        service->pagingInfo.pageDirectory[0x3FC].belongsToUserProcess = 1;
-        service->pagingInfo.pageDirectory[0x3FC].present = 1;
-        service->pagingInfo.pageDirectory[0x3FC].writable = 1;
-    }
-    for (uint32_t i = 0; i < 3; i++) {
-        // todo: make this unwritable!
-        sharePage(&(service->pagingInfo), current, current);
-        current += 0x1000;
-    }
-    // reserve first few pages to hopefully catch NULL pointers correctly
-    reservePagesCount(&service->pagingInfo, 0, 0x10);
-    for (uint32_t i = 0; i < header->programHeaderEntryCount; i++) {
-        if (hlib && programHeader->virtualAddress >= 0xF0000000) {
-            goto end;
-        }
-        for (uint32_t page = 0; page < programHeader->segmentMemorySize;
-             page += 0x1000) {
-            void *data = malloc(0x1000);
-            if (programHeader->segmentFileSize > page) {
-                memcpy(elfStart + programHeader->dataOffset + page, data,
-                       MIN(0x1000, programHeader->segmentFileSize - page));
-            }
-            sharePage(&service->pagingInfo, data,
-                      PTR(programHeader->virtualAddress + page));
-        }
-    end:
-        programHeader = (void *)programHeader + header->programHeaderEntrySize;
-    }
-    for (uint32_t i = 0; i < header->sectionHeaderEntryCount; i++) {
-        SectionHeader *sectionHeader = elfStart +
-                                       header->sectionHeaderTablePosition +
-                                       i * header->sectionHeaderEntrySize;
-        if (sectionHeader->type == 2 && !service->symbolTable) {
-            service->symbolTable = elfStart + sectionHeader->offset;
-            service->symbolTableSize = sectionHeader->size;
-        }
-        if (sectionHeader->type == 3 && !service->stringTable) {
-            service->stringTable = elfStart + sectionHeader->offset;
-        }
-    }
-    ServiceFunction *main = malloc(sizeof(ServiceFunction));
-    main->name = "main";
-    main->service = service;
-    main->address = PTR(header->entryPosition);
-    listAdd(&services, service);
-    listAdd(&service->functions, main);
-    return service;
 }
 
 Service *findService(char *name) {

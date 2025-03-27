@@ -1,15 +1,3 @@
 #include <service.h>
 #include <stringmap.h>
 #include <util.h>
-
-extern Service *loadProgram(char *name, Thread *respondingTo, bool initialize);
-
-void handleLoadFromInitrdSyscall(Thread *call) {
-    char *name = retrieveString(call->parameters[0]);
-    Service *service = call->service;
-    Service *result = loadProgram(name, (void *)call, call->parameters[1]);
-    if (result) {
-        call->returnValue = result->id;
-    }
-    call->avoidReschedule = call->parameters[1];
-}

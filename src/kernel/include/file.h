@@ -5,17 +5,19 @@
 #ifndef FILE_H
 #define FILE_H
 
+#include <process.h>
 #include <stdint.h>
 #include <util.h>
-#include <process.h>
 
-enum {
+enum FileType {
     FILE_TYPE_PIPE = 0,
+    FILE_TYPE_DIRECTORY = 1,
+    FILE_TYPE_INITRD = 2,
 };
 
 typedef struct File {
     char *name;
-    uint32_t type;
+    enum FileType type;
 } File;
 
 typedef struct {
@@ -38,4 +40,21 @@ typedef struct {
     ProcessThread *blockedReadingThread;
 } PipeFile;
 
-#endif //FILE_H
+typedef struct DirectoryFile {
+    File;
+    ListElement *children;
+} DirectoryFile;
+
+typedef struct {
+    File;
+    void *kernelPosition;
+    uint32_t size;
+} InitrdFile;
+
+extern DirectoryFile *findDirectoryForFile(char *filepath,
+                                           DirectoryFile *directory,
+                                           bool createMissing);
+extern File *findFile(char *filename, DirectoryFile *directory);
+extern DirectoryFile *processInitrd(void *fileData, uint32_t tarFileSize);
+
+#endif // FILE_H

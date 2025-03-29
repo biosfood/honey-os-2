@@ -104,15 +104,10 @@ FileDescriptor *allocateFileDescriptor(Process *process) {
 }
 
 void handleOpenSyscall(ProcessThread *thread) {
-    File *file = NULL;
     void *filename = PTR(thread->parameters[0]);
     filename = getPhysicalAddress(thread->process->memory_information.pageDirectory, filename);
     filename = mapTemporaryA(filename);
-    foreach(thread->process->container->vfs, File*, current_file, {
-            if (stringEquals(filename, current_file->name)) {
-            file = current_file;
-            }
-            });
+    File *file = findFile(filename, thread->process->container->vfs);
     thread->resume = true;
     if (file == NULL) {
         thread->returnValue = -1;

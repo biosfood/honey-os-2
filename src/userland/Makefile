@@ -9,7 +9,7 @@ SOURCE_FILES := $(shell find . -name "*.c" -or -name *.asm -or -name *.s)
 OBJS := $(SOURCE_FILES:%=$(BUILD_FOLDER)/%.o)
 
 PROGRAM_NAMES := $(shell ls -d */ | sed "s/\/$$//" | sed "s|build||")
-PROGRAMS := $(PROGRAM_NAMES:%=../../initrd/%)
+PROGRAMS := $(PROGRAM_NAMES:%=../../initrd/bin/%)
 
 default: ../../rootfs/initrd.tar
 
@@ -18,13 +18,13 @@ all: $(PROGRAMS)
 ../../rootfs/initrd.tar: $(PROGRAMS)
 	@echo "packing files into rootfs/initrd.tar"
 	@echo "$(PROGRAMS)"
-	@tar cf ../../rootfs/initrd.tar ../../initrd/
+	@(cd ../../initrd && tar cf ../rootfs/initrd.tar .)
 
 .SUFFIXES:
 
 define MAKE_PROGRAM
 
-../../initrd/$(1): $(2)
+../../initrd/bin/$(1): $(2)
 	@echo "linking $(1) from $$^"
 	@$(LD) $(LD_FLAGS) -o $$@ $$^
 

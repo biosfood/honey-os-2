@@ -25,6 +25,7 @@ build:
 
 initrd:
 	@mkdir initrd
+	@mkdir initrd/bin
 
 $(IMAGE_FILE): rootfs/boot/kernel rootfs/initrd.tar
 	@echo "creating the iso image"

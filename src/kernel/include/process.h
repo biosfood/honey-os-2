@@ -14,11 +14,12 @@ typedef struct {
     void *data;
     uint32_t size;
 } VFSFile;
-
+struct DirectoryFile;
 typedef struct {
     uint32_t id;
     ListElement *processes;
-    ListElement *vfs;
+    // of type DirectoryFile
+    struct DirectoryFile *vfs;
 } Container;
 
 typedef struct {

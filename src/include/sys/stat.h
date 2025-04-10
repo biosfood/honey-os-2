@@ -8,5 +8,6 @@
 #include <sys/types.h>
 
 extern int mkfifo(const char * path, mode_t mode);
+extern int mkdir(const char * path, mode_t mode);
 
 #endif //STAT_H

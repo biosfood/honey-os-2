@@ -1,4 +1,5 @@
 #include <memory.h>
+#include <stddef.h>
 #include <util.h>
 
 void listAdd(ListElement **list, void *data) {

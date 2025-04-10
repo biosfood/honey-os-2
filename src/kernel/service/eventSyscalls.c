@@ -1,4 +1,5 @@
 #include <service.h>
+#include <stddef.h>
 #include <stringmap.h>
 #include <util.h>
 

@@ -2,6 +2,7 @@
 #include <interrupts.h>
 #include <memory.h>
 #include <service.h>
+#include <stddef.h>
 #include <syscall.h>
 #include <util.h>
 

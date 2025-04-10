@@ -1,6 +1,7 @@
 #include <memory.h>
 #include <process.h>
 #include <service.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <syscall.h>
 #include <util.h>
@@ -78,7 +79,7 @@ extern uintptr_t handlePthreadCreateSyscall;
 extern uintptr_t handleOpenSyscall;
 extern uintptr_t handleReadSyscall;
 extern uintptr_t handleWriteSyscall;
-extern uintptr_t handleMkFifoSyscall;
+extern uintptr_t handleCreateFileSyscall;
 
 void (*syscallHandlers[])(ProcessThread *) = {
     0,
@@ -110,7 +111,7 @@ void (*syscallHandlers[])(ProcessThread *) = {
     (void *) &handleOpenSyscall,
     (void *) &handleReadSyscall,
     (void *) &handleWriteSyscall,
-    (void *) &handleMkFifoSyscall,
+    (void *) &handleCreateFileSyscall,
 };
 
 extern uint32_t thread_return_value, thread_cr3, thread_esp;

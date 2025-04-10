@@ -4,6 +4,7 @@
 #include <process.h>
 #include <service.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stringmap.h>
 #include <util.h>
 

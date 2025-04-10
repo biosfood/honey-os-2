@@ -34,7 +34,7 @@ typedef enum {
     SYS_OPEN = 26,
     SYS_READ = 27,
     SYS_WRITE = 28,
-    SYS_MKFIFO = 29,
+    SYS_FILE_CREATE = 29,
 } SyscallIds;
 
 extern uint32_t syscall(uint32_t function, uint32_t parameter0, uint32_t parameter1,

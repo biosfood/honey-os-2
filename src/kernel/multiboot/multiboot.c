@@ -1,5 +1,6 @@
 #include <memory.h>
 #include <multiboot.h>
+#include <stddef.h>
 #include <util.h>
 
 void *findInitrd(MultibootInformation *information, uint32_t *fileSize) {

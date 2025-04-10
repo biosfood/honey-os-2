@@ -1,0 +1,115 @@
+//
+// Created by lukas on 3/30/25.
+//
+
+#include "ramfs.h"
+#include <util.h>
+
+#include <stddef.h>
+#include <vfs.h>
+
+// ramfs is a basic implementation of the file system that stores all its data
+// in the kernel memory. directories store their children in a tree-like
+// structure.
+
+File *ramFsGet(FileSystem *file_system, char *path) {
+    if (*path != '/')
+        return NULL;
+    path++;
+    if (!*path) {
+        return file_system->data;
+    }
+    RamFsFile *current_dir = file_system->data;
+    while (*path) {
+        uint8_t next_slash = 0;
+        while (path[next_slash] != '/' && path[next_slash]) {
+            next_slash++;
+        }
+        char old = path[next_slash];
+        path[next_slash] = 0;
+        RamFsFile *found_file = NULL;
+        foreach (current_dir->data, RamFsFile *, file, {
+            if (stringEquals(file->name, path)) {
+                found_file = file;
+                break;
+            }
+        })
+            ;
+        path[next_slash] = old;
+        if (!found_file) {
+            return NULL;
+        }
+        path += next_slash;
+        if (!*path || *path == '/' && !path[1]) {
+            return (void *)found_file;
+        }
+        if (found_file->type != FILE_TYPE_DIRECTORY) {
+            return NULL;
+        }
+        path++;
+        current_dir = found_file;
+    }
+}
+
+File *ramFsCreate(File *directory, char *name,
+                  enum FileType type) {
+    if (directory->type != FILE_TYPE_DIRECTORY) {
+        return NULL;
+    }
+    foreach (directory->data, RamFsFile *, file, {
+        if (stringEquals(file->name, name)) {
+            return NULL;
+        }
+    })
+        ;
+    RamFsFile *file = malloc(sizeof(RamFsFile));
+    file->name = combineStrings(name, "");
+    file->livesInMemory = true;
+    file->size = 0;
+    file->data = NULL;
+    file->file_system = directory->file_system;
+    file->type = type;
+    listAdd(&directory->data, file);
+    return (void *)file;
+}
+
+void ramFsWrite(RamFsFile *file, void *data,
+               uint32_t size, uint32_t offset) {
+    // just completely overwrites the file for now...
+    if (file->data) {
+        free(file->data);
+    }
+    file->data = malloc(size + offset);
+    file->size = size + offset;
+    memcpy(data, file->data + offset, size);
+}
+
+void ramFsRead(RamFsFile *file, void *data, uint32_t size, uint32_t offset) {
+    if (size + offset > file->size) {
+        return;
+    }
+    memcpy(file->data + offset, data, size);
+}
+
+FileSystemType ramfsType = {
+    .getFile = ramFsGet,
+    .create = ramFsCreate,
+    .write = ramFsWrite,
+    .read = ramFsRead,
+};
+
+FileSystem *createRamfs() {
+    RamFsFile *rootDir = malloc(sizeof(RamFsFile));
+    rootDir->data = NULL;
+    rootDir->type = FILE_TYPE_DIRECTORY;
+    rootDir->name = "/";
+    rootDir->size = 0;
+    rootDir->livesInMemory = true;
+    FileSystem *file_system = malloc(sizeof(FileSystem));
+    rootDir->file_system = file_system;
+    file_system->data = rootDir;
+    file_system->name = "RAMFS";
+    file_system->type = &ramfsType;
+    file_system->mountedInstances = NULL;
+    return file_system;
+}

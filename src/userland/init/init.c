@@ -2,6 +2,7 @@
 #include <hlib.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <sys/stat.h>
 
 void parallelOut(uint32_t data, uint32_t dataLength) {
     if (data == '\n') {
@@ -32,7 +33,8 @@ int test() {
 }
 
 int main() {
-    mkfifo("/dev/serout");
+    mkdir("/dev/", 0);
+    mkfifo("/dev/serout", 0);
     const int fd = open("/dev/serout", 0);
     pthread_create(0, 0, (void *)test, 0);
     char *message = "Hello World\n";

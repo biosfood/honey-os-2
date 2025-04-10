@@ -17,8 +17,7 @@ all: $(PROGRAMS)
 
 ../../rootfs/initrd.tar: $(PROGRAMS)
 	@echo "packing files into rootfs/initrd.tar"
-	@echo "$(PROGRAMS)"
-	@(cd ../../initrd && tar cf ../rootfs/initrd.tar .)
+	@(cd ../../initrd && tar cf ../rootfs/initrd.tar --transform='s|^|/|' --show-transformed-names -v  *)
 
 .SUFFIXES:
 

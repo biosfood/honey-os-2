@@ -79,7 +79,7 @@ typedef struct {
     File *(*getFile)(struct FileSystem *file_system, char *path);
     File *(*create)(File *file, char *path, enum FileType type);
     void (*write)(File *file, void *data, uint32_t size, uint32_t offset);
-    void (*read)(File *file, void *data, uint32_t size, uint32_t offset);
+    uint32_t (*read)(File *file, void *data, uint32_t size, uint32_t offset);
 } FileSystemType;
 
 typedef struct FileSystem {

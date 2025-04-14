@@ -183,6 +183,52 @@ void handleWriteSyscall(ProcessThread *thread) {
     }
 }
 
+void fifo_read(ProcessThread *thread, FileDescriptor *file_descriptor) {
+    FiFoFile *file = (void *)file_descriptor->file;
+    if (file->queue) {
+        PipeData *data = listPopFirst(&file->queue);
+        uint32_t bytes_to_transfer = MIN(thread->parameters[2], data->length);
+        char *threadWrite = PTR(thread->parameters[1]);
+        char *write = mapTemporaryA(getPhysicalAddress(
+            thread->process->memory_information.pageDirectory, threadWrite));
+        char *read = data->data;
+        for (int i = 0; i < bytes_to_transfer; i++) {
+            if ((U32(write) & 0xFFF) == 0) {
+                write = mapTemporaryA(getPhysicalAddress(
+                    thread->process->memory_information.pageDirectory,
+                    threadWrite));
+            }
+            *write = *read;
+            write++;
+            read++;
+            threadWrite++;
+        }
+        if (data->length > thread->parameters[2]) {
+            // some data is left over. Just making a new entry and putting
+            // it right at the beginning of the queue
+            ListElement *list_element = malloc(sizeof(ListElement));
+            void *old = data->data;
+            void *new = malloc(data->length - thread->parameters[2]);
+            memcpy(old + thread->parameters[2], new,
+                   data->length - thread->parameters[2]);
+            free(old);
+            data->length -= thread->parameters[2];
+            data->data = new;
+            list_element->data = data;
+            list_element->next = file->queue;
+            file->queue = list_element;
+        } else {
+            free(data->data);
+            free(data);
+        }
+        thread->returnValue = bytes_to_transfer;
+        thread->resume = true;
+    } else {
+        file->blockedReadingThread = thread;
+        thread->resume = false;
+    }
+}
+
 void handleReadSyscall(ProcessThread *thread) {
     FileDescriptor *file_descriptor = NULL;
     foreach (thread->process->openFileHandles, FileDescriptor *, descriptor, {
@@ -202,49 +248,28 @@ void handleReadSyscall(ProcessThread *thread) {
         return;
     }
     if (file_descriptor->file->type == FILE_TYPE_FIFO) {
-        FiFoFile *file = (void *)file_descriptor->file;
-        if (file->queue) {
-            PipeData *data = listPopFirst(&file->queue);
-            uint32_t bytes_to_transfer =
-                MIN(thread->parameters[2], data->length);
-            char *threadWrite = PTR(thread->parameters[1]);
-            char *write = mapTemporaryA(getPhysicalAddress(
-                thread->process->memory_information.pageDirectory,
-                threadWrite));
-            char *read = data->data;
-            for (int i = 0; i < bytes_to_transfer; i++) {
-                if ((U32(write) & 0xFFF) == 0) {
-                    write = mapTemporaryA(getPhysicalAddress(
-                        thread->process->memory_information.pageDirectory,
-                        threadWrite));
-                }
-                *write = *read;
-                write++;
-                read++;
-                threadWrite++;
+        fifo_read(thread, file_descriptor);
+    } else {
+        // TODO: this is horribly inefficient
+        void *data = malloc(thread->parameters[2]);
+        uint32_t bytes_to_transfer = file_descriptor->file->file_system->type->read(file_descriptor->file, data, thread->parameters[2], 0);
+
+        char *threadWrite = PTR(thread->parameters[1]);
+        char *write = mapTemporaryA(getPhysicalAddress(
+            thread->process->memory_information.pageDirectory, threadWrite));
+        char *read = data;
+        for (int i = 0; i < bytes_to_transfer; i++) {
+            if ((U32(write) & 0xFFF) == 0) {
+                write = mapTemporaryA(getPhysicalAddress(
+                    thread->process->memory_information.pageDirectory,
+                    threadWrite));
             }
-            if (data->length > thread->parameters[2]) {
-                // some data is left over.
-                ListElement *list_element = malloc(sizeof(ListElement));
-                void *old = data->data;
-                void *new = malloc(data->length - thread->parameters[2]);
-                memcpy(old + thread->parameters[2], new,
-                       data->length - thread->parameters[2]);
-                free(old);
-                data->length -= thread->parameters[2];
-                data->data = new;
-                list_element->data = data;
-                list_element->next = file->queue;
-                file->queue = list_element;
-            } else {
-                free(data->data);
-                free(data);
-            }
-            thread->returnValue = bytes_to_transfer;
-            thread->resume = true;
-        } else {
-            file->blockedReadingThread = thread;
-            thread->resume = false;
+            *write = *read;
+            write++;
+            read++;
+            threadWrite++;
         }
+        thread->resume = true;
+        thread->returnValue = bytes_to_transfer;
     }
 }

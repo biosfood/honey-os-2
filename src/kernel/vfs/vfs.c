@@ -83,7 +83,6 @@ FileDescriptor *allocateFileDescriptor(Process *process) {
             current = current->next;
             descriptor->id++;
         }
-        descriptor->id++;
         previous->next = list_element;
         if (current) {
             list_element->next = current;

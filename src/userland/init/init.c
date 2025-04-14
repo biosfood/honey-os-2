@@ -37,6 +37,9 @@ int main() {
     mkfifo("/dev/serout", 0);
     const int fd = open("/dev/serout", 0);
     pthread_create(0, 0, (void *)test, 0);
-    char *message = "Hello World\n";
-    write(fd, message, 15);
+    write(fd, "Hello World\n", 12);
+    char message[100];
+    const int messageFile = open("/message", 0);
+    read(messageFile, message, 100);
+    write(fd, message, strlen(message));
 }

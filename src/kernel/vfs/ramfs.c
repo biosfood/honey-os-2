@@ -51,8 +51,7 @@ File *ramFsGet(FileSystem *file_system, char *path) {
     }
 }
 
-File *ramFsCreate(File *directory, char *name,
-                  enum FileType type) {
+File *ramFsCreate(File *directory, char *name, enum FileType type) {
     if (directory->type != FILE_TYPE_DIRECTORY) {
         return NULL;
     }
@@ -73,8 +72,7 @@ File *ramFsCreate(File *directory, char *name,
     return (void *)file;
 }
 
-void ramFsWrite(RamFsFile *file, void *data,
-               uint32_t size, uint32_t offset) {
+void ramFsWrite(RamFsFile *file, void *data, uint32_t size, uint32_t offset) {
     // just completely overwrites the file for now...
     if (file->data) {
         free(file->data);
@@ -84,11 +82,15 @@ void ramFsWrite(RamFsFile *file, void *data,
     memcpy(data, file->data + offset, size);
 }
 
-void ramFsRead(RamFsFile *file, void *data, uint32_t size, uint32_t offset) {
-    if (size + offset > file->size) {
-        return;
+uint32_t ramFsRead(RamFsFile *file, void *data, uint32_t size,
+                   uint32_t offset) {
+    uint32_t bytes_to_read =
+        MAX(0, MIN((int32_t)size, (int32_t)(file->size - offset)));
+    if (!bytes_to_read) {
+        return 0;
     }
     memcpy(file->data + offset, data, size);
+    return bytes_to_read;
 }
 
 FileSystemType ramfsType = {

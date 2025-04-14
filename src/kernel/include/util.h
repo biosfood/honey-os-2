@@ -8,7 +8,7 @@
 #define U32(x) (uint32_t)(uintptr_t)(x)
 #define PTR(x) (void *)(uintptr_t)(x)
 
-#define MIN(x, y) (x < y ? x : y)
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) (x < y ? y : x)
 
 #define PAGE_COUNT(x) (((x - 1) / 4096) + 1)

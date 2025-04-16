@@ -103,6 +103,7 @@ typedef struct {
 } PipeData;
 
 extern FileSystem *createRamfs();
+extern FileSystem *createKernelFs();
 void processInitrd(void *fileData, uint32_t tarFileSize,
                    FileSystem *file_system);
 

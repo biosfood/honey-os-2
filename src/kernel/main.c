@@ -112,15 +112,21 @@ Container *newContainer(ListElement *mountlist) {
 
 bool shutdown = false;
 
-void loadAndScheduleSystemServices(void *multibootInfo) {
-    FileSystem *ramfs = createRamfs();
+void mount(ListElement **mountlist, FileSystem *file_system, char *mountPoint, char *pathOffset) {
     Mount *mount = malloc(sizeof(Mount));
-    mount->file_system = ramfs;
-    mount->mountPoint = "/";
-    mount->pathOffset = "/";
+    mount->file_system = file_system;
+    mount->mountPoint = mountPoint;
+    mount->pathOffset = pathOffset;
+    listAdd(&file_system->mountedInstances, mount);
+    listAdd(mountlist, mount);
+}
+
+void loadAndScheduleSystemServices(void *multibootInfo) {
     ListElement *mounts = NULL;
-    listAdd(&mounts, mount);
-    listAdd(&ramfs->mountedInstances, mount);
+    FileSystem *ramfs = createRamfs();
+    mount(&mounts, ramfs, "/", "/");
+    FileSystem *kernelFs = createKernelFs();
+    mount(&mounts, kernelFs, "/kernel/", "/");
 
     void *address = kernelMapPhysicalCount(multibootInfo, 4);
     uint32_t initrdSize;

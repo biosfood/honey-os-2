@@ -39,7 +39,14 @@ int main() {
     pthread_create(0, 0, (void *)test, 0);
     write(fd, "Hello World\n", 12);
     char message[100];
-    const int messageFile = open("/message", 0);
+    int messageFile = open("/message", 0);
     read(messageFile, message, 100);
     write(fd, message, strlen(message));
+    messageFile = open("/kernel/cpuid", 0);
+    uint32_t cpuidMessage[4];
+    read(messageFile, cpuidMessage, 16);
+    cpuidMessage[0] = cpuidMessage[1];
+    cpuidMessage[1] = cpuidMessage[3];
+    cpuidMessage[3] = '\n';
+    write(fd, cpuidMessage, strlen(cpuidMessage));
 }

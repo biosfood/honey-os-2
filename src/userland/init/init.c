@@ -1,19 +1,25 @@
 #include <fnctl.h>
-#include <hlib.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <sys/stat.h>
+#include <string.h>
 
-void parallelOut(uint32_t data, uint32_t dataLength) {
+int portFd;
+
+#define ioOut(port, data, len) {buf=data; pwrite(portFd, &buf, len, port);}
+#define ioIn(port, len) ({pread(portFd, &buf, len, port); buf;})
+#define U32(x) ((uint32_t)(uintptr_t)(x))
+
+void parallelOut(const uint32_t data) {
+    uint32_t buf;
     if (data == '\n') {
-        parallelOut('\r', 0);
+        parallelOut('\r');
     }
-    uint8_t control;
     while (!(ioIn(0x379, sizeof(uint8_t)) & 0x80)) {
     }
     ioOut(0x378, U32(data), sizeof(uint8_t));
 
-    control = ioIn(0x37A, sizeof(uint8_t));
+    uint8_t control = ioIn(0x37A, sizeof(uint8_t));
     ioOut(0x37A, control | 1, sizeof(uint8_t));
     ioOut(0x37A, control, sizeof(uint8_t));
     while (!(ioIn(0x379, sizeof(uint8_t)) & 0x80)) {
@@ -27,12 +33,13 @@ int test() {
     while (1) {
         const int32_t count = read(fd, buffer, 1024);
         for (int i = 0; i < count; ++i) {
-            parallelOut(buffer[i], 0);
+            parallelOut(buffer[i]);
         }
     }
 }
 
 int main() {
+    portFd = open("/kernel/port", 0);
     mkdir("/dev/", 0);
     mkfifo("/dev/serout", 0);
     const int fd = open("/dev/serout", 0);

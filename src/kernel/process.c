@@ -180,6 +180,30 @@ void handleWriteSyscall(ProcessThread *thread) {
             listAdd(&file->queue, entry);
             thread->resume = true;
         }
+    } else {
+        void *data = malloc(thread->parameters[2]);
+        char *write = data;
+        void *threadRead = PTR(thread->parameters[1]);
+        char *read = mapTemporaryA(getPhysicalAddress(
+            thread->process->memory_information.pageDirectory, threadRead));
+        // just copying byte for byte here
+        for (int i = 0; i < thread->parameters[2]; ++i) {
+            if ((U32(read) & 0xFFF) == 0) {
+                read = mapTemporaryA(getPhysicalAddress(
+                    thread->process->memory_information.pageDirectory,
+                    threadRead));
+            }
+            *write = *read;
+            write++;
+            read++;
+            threadRead++;
+        }
+        uint32_t bytes_transfered =
+            file_descriptor->file->file_system->type->write(
+                file_descriptor->file, data, thread->parameters[2], thread->parameters[3]);
+        free(data);
+        thread->returnValue = bytes_transfered;
+        thread->resume = true;
     }
 }
 
@@ -252,7 +276,10 @@ void handleReadSyscall(ProcessThread *thread) {
     } else {
         // TODO: this is horribly inefficient
         void *data = malloc(thread->parameters[2]);
-        uint32_t bytes_to_transfer = file_descriptor->file->file_system->type->read(file_descriptor->file, data, thread->parameters[2], 0);
+        uint32_t bytes_to_transfer =
+            file_descriptor->file->file_system->type->read(
+                file_descriptor->file, data, thread->parameters[2],
+                thread->parameters[3]);
 
         char *threadWrite = PTR(thread->parameters[1]);
         char *write = mapTemporaryA(getPhysicalAddress(
@@ -269,6 +296,7 @@ void handleReadSyscall(ProcessThread *thread) {
             read++;
             threadWrite++;
         }
+        free(data);
         thread->resume = true;
         thread->returnValue = bytes_to_transfer;
     }

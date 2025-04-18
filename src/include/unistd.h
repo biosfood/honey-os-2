@@ -12,6 +12,8 @@
 // #include <fcntl.h>
 
 extern ssize_t read(int, void *, size_t);
+extern ssize_t pread(int filedes, void *buf, size_t nbyte, off_t offset);
 extern ssize_t write(int, void *, size_t);
+extern ssize_t pwrite(int filedes, void *buf, size_t nbyte, off_t offset);
 
 #endif //UNISTD_H

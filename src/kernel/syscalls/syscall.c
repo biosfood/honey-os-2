@@ -54,8 +54,6 @@ void handleSyscall(void *esp, const uint32_t function, const uint32_t parameter0
 
 extern uintptr_t handleCreateFunctionSyscall;
 extern uintptr_t handleRequestSyscall;
-extern uintptr_t handleIOInSyscall;
-extern uintptr_t handleIOOutSyscall;
 extern uintptr_t handleGetServiceSyscall;
 extern uintptr_t handleGetFunctionSyscall;
 extern uintptr_t handleSubscribeInterruptSyscall;
@@ -85,8 +83,8 @@ void (*syscallHandlers[])(ProcessThread *) = {
     0,
     (void *) &handleCreateFunctionSyscall,
     (void *) &handleRequestSyscall,
-    (void *) &handleIOInSyscall,
-    (void *) &handleIOOutSyscall,
+    NULL,
+    NULL,
     NULL,
     (void *) &handleGetServiceSyscall,
     (void *) &handleGetFunctionSyscall,

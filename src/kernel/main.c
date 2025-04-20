@@ -107,6 +107,24 @@ Container *newContainer(ListElement *mountlist) {
 
     File *init_file = findFile("/bin/init", container->vfs);
     processLoadELF(init_process, init_file);
+
+    File *nulldev = findFile("/kernel/null", container->vfs);
+
+    FileDescriptor *stdin = allocateFileDescriptor((void*)init_process);
+    stdin->file = nulldev;
+    stdin->process = (void*)init_process;
+    listAdd(&init_process->openFileHandles, stdin);
+
+    FileDescriptor *stdout = allocateFileDescriptor((void*)init_process);
+    stdout->file = nulldev;
+    stdout->process = (void*)init_process;
+    listAdd(&init_process->openFileHandles, stdout);
+
+    FileDescriptor *stderr = allocateFileDescriptor((void*)init_process);
+    stderr->file = nulldev;
+    stderr->process = (void*)init_process;
+    listAdd(&init_process->openFileHandles, stderr);
+
     return container;
 }
 

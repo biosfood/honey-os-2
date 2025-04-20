@@ -18,6 +18,7 @@ typedef struct {
     KernelFsFile port;
     KernelFsFile mem;
     KernelFsFile cpuid;
+    KernelFsFile null;
 } KernelFsFileSystem;
 
 #endif //KERNELFS_H

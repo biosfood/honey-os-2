@@ -106,5 +106,6 @@ extern FileSystem *createRamfs();
 extern FileSystem *createKernelFs();
 void processInitrd(void *fileData, uint32_t tarFileSize,
                    FileSystem *file_system);
+extern FileDescriptor *allocateFileDescriptor(struct Process *process);
 
 #endif // VFS_H

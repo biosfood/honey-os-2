@@ -1,48 +1,56 @@
 #include <memory.h>
-#include <service.h>
+#include <process.h>
+#include <stddef.h>
+#include <sys/mman.h>
 #include <syscall.h>
 #include <util.h>
 
-void handleRequestMemorySyscall(Thread *call) {
-    Service *service = call->service;
-    uint32_t pageCount = call->parameters[0];
-    void *target = PTR(call->parameters[1]);
-    void *physical = PTR(call->parameters[2]);
+typedef struct {
+    void *addr;
+    size_t len;
+    int prot;
+    int flags;
+    int filedes;
+    uint32_t off;
+} __attribute__((packed)) MmapArgs;
+#define pageCount(x) ((((x) - 1) >> 12) + 1)
 
-    uint32_t virtualStart = PAGE_ID(target);
-    if (!virtualStart) {
-        virtualStart = findMultiplePages(&service->pagingInfo, pageCount);
-    }
-    reservePagesCount(&service->pagingInfo, virtualStart, pageCount);
+void handleMmapSyscall(ProcessThread *thread) {
+    MmapArgs args;
+    MmapArgs *threadArgs = mapTemporaryA(
+        getPhysicalAddress(thread->process->memory_information.pageDirectory,
+                           PTR(thread->parameters[0])));
+    memcpy(threadArgs, &args, sizeof(MmapArgs));
+    uint32_t pagesCount = pageCount(args.len);
 
-    if (!physical) {
-        for (uint32_t i = 0; i < pageCount; i++) {
+    if (args.flags & MAP_ANON) {
+        if (args.filedes != -1) {
+            thread->returnValue = -1;
+            thread->resume = true;
+            return;
+        }
+        void *target = PTR(thread->parameters[1]);
+        uint32_t virtualStart = PAGE_ID(target);
+        if (!target) {
+            virtualStart = findMultiplePages(
+                &thread->process->memory_information, pagesCount);
+        }
+        reservePagesCount(&thread->process->memory_information, virtualStart,
+                          pagesCount);
+
+        for (uint32_t i = 0; i < pagesCount; i++) {
             uint32_t physicalPage = findPage(kernelPhysicalPages);
             reservePagesCount(kernelPhysicalPages, physicalPage, 1);
-            mapPage(&service->pagingInfo, ADDRESS(physicalPage),
+            mapPage(&thread->process->memory_information, ADDRESS(physicalPage),
                     ADDRESS(virtualStart + i), true, false);
         }
-    } else {
-        uint32_t physicalPage = PAGE_ID(physical);
-        reservePagesCount(kernelPhysicalPages, physicalPage, pageCount);
-        for (uint32_t i = 0; i < pageCount; i++) {
-            // the program probably wants to interact with an external device, so set the volatile flag
-            mapPage(&service->pagingInfo, ADDRESS(physicalPage + i),
-                    ADDRESS(virtualStart + i), true, true);
-        }
+        thread->returnValue = U32(ADDRESS(virtualStart));
+        thread->resume = true;
     }
-    call->returnValue = U32(ADDRESS(virtualStart)) + PAGE_OFFSET(physical);
 }
 
-void handleGetPhysicalSyscall(Thread *call) {
-    Service *service = call->service;
-    call->returnValue = U32(getPhysicalAddress(
-        service->pagingInfo.pageDirectory, PTR(call->parameters[0])));
-}
-
-void handleFreeSyscall(Thread *call) {
-    Service *service = call->service;
-    uint32_t address = call->parameters[0];
-    uint32_t virtualPageId = PAGE_ID(address);
-    giveUpPage(&service->pagingInfo, virtualPageId);
+void handleMunmapSyscall(const ProcessThread *thread) {
+    const uint32_t address = thread->parameters[0];
+    const uint32_t virtualPageId = PAGE_ID(address);
+    giveUpPage(&thread->process->memory_information, virtualPageId);
 }

@@ -66,18 +66,16 @@ extern uintptr_t handleInsertStringSyscall;
 extern uintptr_t handleReadStringLengthSyscall;
 extern uintptr_t handleReadStringSyscall;
 extern uintptr_t handleDiscardStringSyscall;
-extern uintptr_t handleRequestMemorySyscall;
 extern uintptr_t handleLookupSymbolSyscall;
 extern uintptr_t handleStackContainsSyscall;
 extern uintptr_t handleAwaitSyscall;
-extern uintptr_t handleGetPhysicalSyscall;
 extern uintptr_t handleForkSyscall;
-extern uintptr_t handleFreeSyscall;
 extern uintptr_t handlePthreadCreateSyscall;
 extern uintptr_t handleOpenSyscall;
 extern uintptr_t handleReadSyscall;
 extern uintptr_t handleWriteSyscall;
 extern uintptr_t handleCreateFileSyscall;
+extern uintptr_t handleMmapSyscall, handleMunmapSyscall;
 
 void (*syscallHandlers[])(ProcessThread *) = {
     0,
@@ -98,18 +96,20 @@ void (*syscallHandlers[])(ProcessThread *) = {
     (void *) &handleReadStringLengthSyscall,
     (void *) &handleReadStringSyscall,
     (void *) &handleDiscardStringSyscall,
-    (void *) &handleRequestMemorySyscall,
+    NULL,
     (void *) &handleLookupSymbolSyscall,
     (void *) &handleStackContainsSyscall,
     (void *) &handleAwaitSyscall,
-    (void *) &handleGetPhysicalSyscall,
+    NULL,
     (void *) &handleForkSyscall,
-    (void *) &handleFreeSyscall,
+    NULL,
     (void *) &handlePthreadCreateSyscall,
     (void *) &handleOpenSyscall,
     (void *) &handleReadSyscall,
     (void *) &handleWriteSyscall,
     (void *) &handleCreateFileSyscall,
+    (void *) &handleMmapSyscall,
+    (void *) &handleMunmapSyscall,
 };
 
 extern uint32_t thread_return_value, thread_cr3, thread_esp;

@@ -8,5 +8,6 @@
 #include <stdint.h>
 
 extern size_t strlen(const char *s);
+extern void *memset(void *s, int c, size_t n);
 
 #endif //STRING_H

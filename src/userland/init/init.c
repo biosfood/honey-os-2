@@ -1,13 +1,22 @@
 #include <fnctl.h>
 #include <pthread.h>
 #include <stdint.h>
-#include <sys/stat.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 int portFd;
 
-#define ioOut(port, data, len) {buf=data; pwrite(portFd, &buf, len, port);}
-#define ioIn(port, len) ({pread(portFd, &buf, len, port); buf;})
+#define ioOut(port, data, len)                                                 \
+    {                                                                          \
+        buf = data;                                                            \
+        pwrite(portFd, &buf, len, port);                                       \
+    }
+#define ioIn(port, len)                                                        \
+    ({                                                                         \
+        pread(portFd, &buf, len, port);                                        \
+        buf;                                                                   \
+    })
 #define U32(x) ((uint32_t)(uintptr_t)(x))
 
 void parallelOut(const uint32_t data) {
@@ -45,15 +54,12 @@ int main() {
     const int fd = open("/dev/serout", 0);
     pthread_create(0, 0, (void *)test, 0);
     write(fd, "Hello World\n", 12);
-    char message[100];
-    int messageFile = open("/message", 0);
-    read(messageFile, message, 100);
-    write(fd, message, strlen(message));
-    messageFile = open("/kernel/cpuid", 0);
-    uint32_t cpuidMessage[4];
+    const int messageFile = open("/kernel/cpuid", 0);
+    uint32_t *cpuidMessage = malloc(4 * 4);
     read(messageFile, cpuidMessage, 16);
     cpuidMessage[0] = cpuidMessage[1];
     cpuidMessage[1] = cpuidMessage[3];
     cpuidMessage[3] = '\n';
-    write(fd, cpuidMessage, strlen(cpuidMessage));
+    write(fd, cpuidMessage, strlen((void *)cpuidMessage));
+    free(cpuidMessage);
 }

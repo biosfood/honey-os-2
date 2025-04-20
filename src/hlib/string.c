@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <syscalls.h>
 
-uint32_t strlen(char *string) {
+size_t strlen(const char *string) {
     if (!string) {
         return 0;
     }
@@ -36,3 +36,14 @@ void readString(uintptr_t stringId, void *buffer) {
 void discardString(uintptr_t stringId) {
     syscall(SYS_DISCARD_STRING, stringId, 0, 0, 0);
 }
+
+void *memset(void *_target, int _byte, size_t size) {
+    uint8_t byte = (uint8_t) _byte;
+    uint8_t *target = _target;
+    for (uint32_t i = 0; i < size; i++) {
+        *target = byte;
+        target++;
+    }
+    return _target;
+}
+

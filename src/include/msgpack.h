@@ -2,7 +2,8 @@
 #define HLIB_BUFFERS_H
 
 #include <stdint.h>
-#include "../hlib/malloc.h"
+#include <stdlib.h>
+#include <string.h>
 
 #define COMMA ,
 

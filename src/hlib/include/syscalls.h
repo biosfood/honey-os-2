@@ -8,9 +8,6 @@ typedef enum {
     SYS_RUN = 0,
     SYS_CREATE_FUNCTION = 1,
     SYS_REQUEST = 2,
-    SYS_IO_IN = 3,
-    SYS_IO_OUT = 4,
-    SYS_LOAD_INITRD = 5,
     SYS_GET_SERVICE = 6,
     SYS_GET_FUNCTION = 7,
     SYS_SUBSCRIBE_INTERRUPT = 8,
@@ -35,6 +32,8 @@ typedef enum {
     SYS_READ = 27,
     SYS_WRITE = 28,
     SYS_FILE_CREATE = 29,
+    SYS_MMAP = 30,
+    SYS_MUNMAP = 30,
 } SyscallIds;
 
 extern uint32_t syscall(uint32_t function, uint32_t parameter0, uint32_t parameter1,

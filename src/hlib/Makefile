@@ -14,9 +14,7 @@ all: ../../initrd/hlib
 
 ../../initrd/hlib: $(OBJS)
 	@echo "linking the honey OS c libary"
-	@$(LD) $(LD_FLAGS) -o ../../build/hlib.o $(OBJS) -T link.ld -r
 	@$(LD) $(LD_FLAGS) -o ../../build/hlib.a $(OBJS) -r
-	@$(LD) $(LD_FLAGS) -o $@ $(OBJS) -T link.ld
 
 $(BUILD_FOLDER)/%.asm.o: %.asm
 	@echo "asembling $<"

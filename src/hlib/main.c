@@ -37,14 +37,6 @@ void freePage(void *location) {
     syscall(SYS_FREE_PAGE, U32(location), 0, 0, 0);
 }
 
-void memset(void *_target, uint8_t byte, uint32_t size) {
-    uint8_t *target = _target;
-    for (uint32_t i = 0; i < size; i++) {
-        *target = byte;
-        target++;
-    }
-}
-
 #define REQUEST1(returnType, functionName, service, function)                  \
     returnType functionName(uint32_t data) {                                   \
         static uint32_t serviceId = 0;                                         \

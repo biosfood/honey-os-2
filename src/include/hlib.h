@@ -3,13 +3,13 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 typedef struct ListElement {
     struct ListElement *next;
     void *data;
 } ListElement;
 
-#include "../hlib/malloc.h"
 #include "msgpack.h"
 
 #define PTR(x) ((void *)(uintptr_t)(x))
@@ -22,9 +22,7 @@ typedef struct ListElement {
 #define MIN(x, y) (x < y ? (x) : (y))
 #define MAX(x, y) (x < y ? (y) : (x))
 
-#define NULL PTR(0)
-
-extern uint32_t createFunction(char *name, int32_t(handler)(void *, uint32_t));
+extern uint32_t createFunction(char *name, int32_t(*callback)(void *data, uint32_t a));
 extern uint32_t ioIn(uint16_t port, uint8_t size);
 extern void ioOut(uint16_t port, uint32_t value, uint8_t size);
 extern void subscribeInterrupt(uint32_t intNo, void *handler);

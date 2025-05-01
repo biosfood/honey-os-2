@@ -114,3 +114,21 @@ void handleOpenSyscall(ProcessThread *thread) {
     thread->returnValue = file_descriptor->id;
 }
 
+void handleCloseSyscall(ProcessThread *thread) {
+    FileDescriptor *file_descriptor = NULL;
+    foreach (thread->process->openFileHandles, FileDescriptor *, descriptor, {
+        if (thread->parameters[0] == descriptor->id) {
+            file_descriptor = descriptor;
+        }
+    })
+        ;
+    if (file_descriptor == NULL) {
+        thread->returnValue = -1;
+        thread->resume = true;
+        return;
+    }
+    listRemoveValue(&thread->process->openFileHandles, file_descriptor);
+    free(file_descriptor);
+    thread->returnValue = 0;
+    thread->resume = true;
+}

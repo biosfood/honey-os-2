@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <stdio.h>
 
 int portFd;
 
@@ -51,15 +52,16 @@ int main() {
     portFd = open("/kernel/port", 0);
     mkdir("/dev/", 0);
     mkfifo("/dev/serout", 0);
-    const int fd = open("/dev/serout", 0);
+    close(STDOUT_FILENO);
+    open("/dev/serout", 0);
     pthread_create(0, 0, (void *)test, 0);
-    write(fd, "Hello World\n", 12);
+    write(STDOUT_FILENO, "Hello World\n", 12);
     const int messageFile = open("/kernel/cpuid", 0);
     uint32_t *cpuidMessage = malloc(4 * 4);
     read(messageFile, cpuidMessage, 16);
     cpuidMessage[0] = cpuidMessage[1];
     cpuidMessage[1] = cpuidMessage[3];
     cpuidMessage[3] = '\n';
-    write(fd, cpuidMessage, strlen((void *)cpuidMessage));
+    write(STDOUT_FILENO, cpuidMessage, strlen((void *)cpuidMessage));
     free(cpuidMessage);
 }

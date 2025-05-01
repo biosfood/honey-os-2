@@ -33,7 +33,8 @@ typedef enum {
     SYS_WRITE = 28,
     SYS_FILE_CREATE = 29,
     SYS_MMAP = 30,
-    SYS_MUNMAP = 30,
+    SYS_MUNMAP = 31,
+    SYS_CLOSE = 32,
 } SyscallIds;
 
 extern uint32_t syscall(uint32_t function, uint32_t parameter0, uint32_t parameter1,

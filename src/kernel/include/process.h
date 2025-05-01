@@ -23,7 +23,7 @@ typedef struct {
     ListElement *vfs;
 } Container;
 
-typedef struct {
+typedef struct Process {
     uint32_t id;
     Container *container;
     ListElement *threads;
@@ -38,7 +38,8 @@ typedef struct ProcessThread {
     bool hasBeenJoined;
     bool readyToBeJoined;
     // system call information
-    // the gist is that in the kernel, a process is always in the 'paused' state - because it did a system call.
+    // the gist is that in the kernel, a process is always in the 'paused' state
+    // - because it did a system call.
     uint32_t function;
     uint32_t parameters[4];
     uint32_t returnValue;
@@ -54,4 +55,4 @@ extern void *runEnd;
 extern void processThread(ProcessThread *thread);
 extern ProcessThread *processLoadELF(Process *process, File *elfStart);
 
-#endif //PROCESS_H
+#endif // PROCESS_H

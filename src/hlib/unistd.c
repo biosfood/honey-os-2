@@ -20,3 +20,7 @@ ssize_t write(const int filedes, void *buffer, size_t nbyte) {
 ssize_t pwrite(const int filedes, void *buffer, size_t nbyte, off_t offset) {
     return (int) syscall(SYS_WRITE, filedes, U32(buffer), nbyte, offset);
 }
+
+int close(int fildes) {
+    return (int) syscall(SYS_CLOSE, fildes, 0,0,0);
+}

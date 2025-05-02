@@ -1,9 +1,9 @@
 #ifndef HLIB_BUFFERS_H
 #define HLIB_BUFFERS_H
 
+#include <../include/stdlib.h>
+#include <../include/string.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 
 #define COMMA ,
 

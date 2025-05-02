@@ -10,8 +10,6 @@ typedef struct ListElement {
     void *data;
 } ListElement;
 
-#include "msgpack.h"
-
 #define PTR(x) ((void *)(uintptr_t)(x))
 #define U32(x) ((uint32_t)(uintptr_t)(x))
 
@@ -99,10 +97,8 @@ extern void listClear(ListElement **list, bool freeData);
         return request(serviceId, functionId, data1, data2);                   \
     }
 
-extern void _printf(AllocationData, const char *format, ...);
 extern char *_asprintf(AllocationData, const char *format, ...);
 extern void sprintf(char *data, const char *format, ...);
-#define printf(...) _printf(allocationData, __VA_ARGS__)
 #define asprintf(...) _asprintf(allocationData, __VA_ARGS__)
 
 extern bool checkFocus();

@@ -1,7 +1,10 @@
+#include "unistd.h"
+
 #include <hlib.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 char HEX_CHARS[] = "0123456789ABCDEF";
 
@@ -139,23 +142,23 @@ void handleInsert(char **write, char insertType, uintptr_t x) {
 }
 uint32_t ioManager, logFunction;
 
-uint32_t printfSize(const char *format, va_list *valist) {
+uint32_t printfSize(const char *format, const va_list ap) {
     uint32_t size = 0;
     for (; format[size] != 0; size++) {
         if (format[size] == '%') {
             char insertType = format[++size];
-            size += getInsertLength(insertType, va_arg(*valist, uintptr_t));
+            size += getInsertLength(insertType, va_arg(ap, uintptr_t));
             continue;
         }
     }
     return size;
 }
 
-void _sprintf(char *data, const char *format, va_list *valist) {
+void vsprintf(char *data, const char *format, va_list ap) {
     char *write = data;
     for (int i = 0; format[i] != 0; i++) {
         if (format[i] == '%') {
-            handleInsert(&write, format[++i], va_arg(*valist, uintptr_t));
+            handleInsert(&write, format[++i], va_arg(ap, uintptr_t));
             continue;
         }
         *write = format[i];
@@ -164,38 +167,33 @@ void _sprintf(char *data, const char *format, va_list *valist) {
     *write = 0;
 }
 
+
+int _vasprintf(AllocationData allocation_data, char **restrict ptr, const char *restrict format, va_list ap) {
+    va_list ap1, ap2;
+    va_copy(ap1, ap);
+    va_copy(ap2, ap);
+    uint32_t length = printfSize(format, ap1);
+    va_end(ap1);
+    *ptr = malloc_(allocation_data, length);
+    vsprintf(*ptr, format, ap2);
+    va_end(ap2);
+    return length;
+}
+
+
+int _vdprintf(AllocationData allocation_data, int filedes, const char *format, va_list ap) {
+    char *data;
+    int length = _vasprintf(allocation_data, &data, format, ap);
+    write(filedes, data, length);
+    free(data);
+}
+
+
 void sprintf(char *data, const char *format, ...) {
     va_list valist;
     va_start(valist, format);
-    _sprintf(data, format, &valist);
+    vsprintf(data, format, valist);
     va_end(valist);
-}
-
-char *_asprintf(AllocationData allocationData, const char *format, ...) {
-    va_list valist;
-    va_start(valist, format);
-    uint32_t size = printfSize(format, &valist);
-    char *data = malloc(size);
-    va_start(valist, format);
-    _sprintf(data, format, &valist);
-    va_end(valist);
-    return data;
-}
-
-void _printf(AllocationData allocationData, const char *format, ...) {
-    // I have absolutely no idea why this line fixes an issue where the first
-    // printf operation consistently doesn't correctly insert its string
-    free(malloc(1));
-    va_list valist;
-    va_start(valist, format);
-    char *data = malloc(printfSize(format, &valist));
-    va_start(valist, format);
-    _sprintf(data, format, &valist);
-    va_end(valist);
-    uintptr_t id = insertString(data);
-    request(ioManager, logFunction, id, 0);
-    discardString(id);
-    free(data);
 }
 
 void gets(char *buffer) {

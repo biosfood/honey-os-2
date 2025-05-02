@@ -1,10 +1,10 @@
 #include <fnctl.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <stdio.h>
 
 int portFd;
 
@@ -55,13 +55,15 @@ int main() {
     close(STDOUT_FILENO);
     open("/dev/serout", 0);
     pthread_create(0, 0, (void *)test, 0);
-    write(STDOUT_FILENO, "Hello World\n", 12);
+    printf("Hello World!\n");
     const int messageFile = open("/kernel/cpuid", 0);
     uint32_t *cpuidMessage = malloc(4 * 4);
     read(messageFile, cpuidMessage, 16);
     cpuidMessage[0] = cpuidMessage[1];
     cpuidMessage[1] = cpuidMessage[3];
-    cpuidMessage[3] = '\n';
-    write(STDOUT_FILENO, cpuidMessage, strlen((void *)cpuidMessage));
+    cpuidMessage[3] = 0;
+    printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
     free(cpuidMessage);
+
+    printf("Port fd: %i\n", portFd);
 }

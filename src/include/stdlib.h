@@ -20,9 +20,9 @@ extern AllocationBlock *allocationData[12];
 typedef AllocationBlock **AllocationData;
 
 extern void free(void *ptr);
+extern void *malloc_(AllocationData, uint32_t);
 
 static inline void *malloc(size_t size) {
-    extern void *malloc_(AllocationData, uint32_t);
     return malloc_(allocationData, size);
 }
 

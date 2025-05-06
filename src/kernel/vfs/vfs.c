@@ -5,8 +5,6 @@
 #include <process.h>
 #include <stddef.h>
 
-extern File *findFile(char *path, ListElement *mountlist);
-
 void handleCreateFileSyscall(ProcessThread *thread) {
     char *mapped_name = mapTemporaryB(
         getPhysicalAddress(thread->process->memory_information.pageDirectory,
@@ -35,10 +33,12 @@ void handleCreateFileSyscall(ProcessThread *thread) {
     // TODO: handle no slashes here
     File *folderFile = NULL;
     if (lastSlashPosition == 0) {
-        folderFile = findFile("/", thread->process->container->vfs);
+        folderFile = thread->process->container->vfs->type->getFile(
+            thread->process->container->vfs, "/");
     } else {
         filename[lastSlashPosition] = 0;
-        folderFile = findFile(filename, thread->process->container->vfs);
+        folderFile = thread->process->container->vfs->type->getFile(
+            thread->process->container->vfs, filename);
         filename[lastSlashPosition] = '/';
     }
     if (!folderFile) {
@@ -98,7 +98,8 @@ void handleOpenSyscall(ProcessThread *thread) {
     filename = getPhysicalAddress(
         thread->process->memory_information.pageDirectory, filename);
     filename = mapTemporaryA(filename);
-    File *file = findFile(filename, thread->process->container->vfs);
+    File *file = thread->process->container->vfs->type->getFile(
+        thread->process->container->vfs, filename);
     thread->resume = true;
     if (file == NULL) {
         thread->returnValue = -1;

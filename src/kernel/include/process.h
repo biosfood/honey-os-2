@@ -19,8 +19,7 @@ struct DirectoryFile;
 typedef struct {
     uint32_t id;
     ListElement *processes;
-    // of type MountPoint
-    ListElement *vfs;
+    FileSystem *vfs;
 } Container;
 
 typedef struct Process {

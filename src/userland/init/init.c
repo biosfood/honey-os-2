@@ -48,6 +48,8 @@ int test() {
     }
 }
 
+extern void initPCI();
+
 int main() {
     portFd = open("/kernel/port", 0);
     mkdir("/dev/", 0);
@@ -66,4 +68,6 @@ int main() {
     free(cpuidMessage);
 
     printf("Port fd: %i\n", portFd);
+
+    initPCI();
 }

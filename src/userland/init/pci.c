@@ -1,6 +1,7 @@
 #include "pci.h"
 
 #include "unistd.h"
+#include <sys/stat.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -112,6 +113,10 @@ void checkFunction(uint8_t bus, uint8_t device, uint8_t function) {
     for (uint8_t i = 0; i < 6; i++) {
         pciDevice->bar[i] = (temp = READ(0x10 + 4 * i));
     }
+    char *path;
+    asprintf(&path, "/dev/pci/%i:%i.%i", bus, device, function);
+    mkdir(path, 0);
+    free(path);
     pciDevice->id = listCount(pciDevices);
     listAdd(&pciDevices, pciDevice);
     if (class == 6 && pciDevice->subclass == 4) {
@@ -161,6 +166,7 @@ void initializePci() {
 
 void initPCI() {
     printf("initializing PIC bus... ");
+    mkdir("/dev/pci", 0);
     initializePci();
     printf("done.\ndumping PIC decices:\n");
     foreach (pciDevices, PciDevice *, device, {

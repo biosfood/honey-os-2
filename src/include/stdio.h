@@ -19,5 +19,13 @@ static inline int printf(const char *restrict format, ...) {
     return _vdprintf(allocationData, STDOUT_FILENO, format, ap);
 }
 
+static inline int asprintf(char **restrict ptr, const char *restrict format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    extern int _vasprintf(AllocationData allocation_data, char **restrict ptr, const char *restrict format, va_list ap);
+    return _vasprintf(allocationData, ptr, format, ap);
+}
+
+extern int sprintf(const char *restrict format, ...);
 
 #endif // STDIO_H

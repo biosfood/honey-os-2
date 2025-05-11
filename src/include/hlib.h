@@ -95,10 +95,6 @@ extern void listClear(ListElement **list, bool freeData);
         return request(serviceId, functionId, data1, data2);                   \
     }
 
-extern char *_asprintf(AllocationData, const char *format, ...);
-extern void sprintf(char *data, const char *format, ...);
-#define asprintf(...) _asprintf(allocationData, __VA_ARGS__)
-
 extern bool checkFocus();
 
 #define COMMA ,

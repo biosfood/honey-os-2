@@ -5,6 +5,7 @@
 #include "ramfs.h"
 #include <util.h>
 
+#include <dirent.h>
 #include <stddef.h>
 #include <vfs.h>
 
@@ -84,13 +85,47 @@ void ramFsWrite(RamFsFile *file, void *data, uint32_t size, uint32_t offset) {
 
 uint32_t ramFsRead(RamFsFile *file, void *data, uint32_t size,
                    uint32_t offset) {
-    uint32_t bytes_to_read =
-        MAX(0, MIN((int32_t)size, (int32_t)(file->size - offset)));
-    if (!bytes_to_read) {
-        return 0;
+    if (file->type == FILE_TYPE_FILE) {
+        uint32_t bytes_to_read =
+            MAX(0, MIN((int32_t)size, (int32_t)(file->size - offset)));
+        if (!bytes_to_read) {
+            return 0;
+        }
+        memcpy(file->data + offset, data, size);
+        return bytes_to_read;
     }
-    memcpy(file->data + offset, data, size);
-    return bytes_to_read;
+    if (file->type == FILE_TYPE_DIRECTORY) {
+        int32_t currentOffset = 0;
+        uint32_t bytes_written = 0;
+        foreach (file->data, RamFsFile *, child, {
+            uint32_t entry_size =
+                sizeof(posix_dirent) + strlen(child->name) + 1;
+            if (currentOffset + entry_size < offset) {
+                currentOffset += entry_size;
+                continue;
+            }
+            if (currentOffset > offset + size) {
+                break;
+            }
+            posix_dirent *dirent = malloc(entry_size);
+            dirent->d_ino = -1;
+            memcpy(child->name, dirent->d_name, strlen(child->name) + 1);
+            dirent->d_reclen = entry_size;
+            dirent->d_type = file->type;
+            uint32_t copy_len = MIN(MAX(MIN((offset + size) - currentOffset,
+                           (currentOffset + entry_size) - offset),
+                       0), entry_size);
+            memcpy(dirent + MAX((int32_t)(offset - currentOffset), 0),
+                   data + MAX(currentOffset - offset, 0),
+                   copy_len);
+            free(dirent);
+            currentOffset += copy_len;
+            bytes_written += copy_len;
+        })
+            ;
+
+        return bytes_written;
+    }
 }
 
 FileSystemType ramfsType = {

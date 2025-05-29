@@ -1,3 +1,6 @@
+#include "../../include/dirent.h"
+
+#include <dirent.h>
 #include <fnctl.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -70,4 +73,19 @@ int main() {
     printf("Port fd: %i\n", portFd);
 
     initPCI();
+
+    int pcidevs = open("/dev/pci", 0);
+    posix_dirent *data = malloc(4096);
+    int len = read(pcidevs, data, 4096);
+    posix_dirent *current = data;
+    while (len) {
+        if (!current->d_reclen) {
+            break;
+        }
+        printf("%s\n", (char*)current->d_name);
+        len -= current->d_reclen;
+        current = ((void*) current) + current->d_reclen;
+    }
+    free(data);
+    printf("done\n");
 }

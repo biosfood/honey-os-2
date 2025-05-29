@@ -14,5 +14,7 @@ typedef size_t pthread_t;
 typedef size_t pthread_attr_t;
 typedef size_t mode_t;
 typedef size_t off_t;
+typedef size_t ino_t;
+typedef size_t reclen_t;
 
 #endif //TYPES_H

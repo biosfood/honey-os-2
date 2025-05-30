@@ -102,6 +102,11 @@ typedef struct {
     void *data;
 } PipeData;
 
+typedef struct {
+    void *data;
+    uint32_t size, offset, current_offset, bytes_written;
+} FillDirData;
+
 extern FileSystem *createRamfs();
 extern FileSystem *createKernelFs();
 void processInitrd(void *fileData, uint32_t tarFileSize,

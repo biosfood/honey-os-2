@@ -83,6 +83,32 @@ void ramFsWrite(RamFsFile *file, void *data, uint32_t size, uint32_t offset) {
     memcpy(data, file->data + offset, size);
 }
 
+void fill_dirent(FillDirData *buf, char *name, int file_type) {
+    uint32_t entry_size =
+        sizeof(posix_dirent) + strlen(name) + 1;
+    if (buf->current_offset + entry_size < buf->offset) {
+        buf->current_offset += entry_size;
+        return;
+    }
+    if (buf->current_offset > buf->offset + buf->size) {
+        return;
+    }
+    posix_dirent *dirent = malloc(entry_size);
+    dirent->d_ino = -1;
+    memcpy(name, dirent->d_name, strlen(name) + 1);
+    dirent->d_reclen = entry_size;
+    dirent->d_type = file_type;
+    uint32_t copy_len = MIN(MAX(MIN((buf->offset + buf->size) - buf->current_offset,
+                   (buf->current_offset + entry_size) - buf->offset),
+               0), entry_size);
+    memcpy(dirent + MAX((int32_t)(buf->offset - buf->current_offset), 0),
+           buf->data + MAX(buf->current_offset - buf->offset, 0),
+           copy_len);
+    free(dirent);
+    buf->current_offset += copy_len;
+    buf->bytes_written += copy_len;
+}
+
 uint32_t ramFsRead(RamFsFile *file, void *data, uint32_t size,
                    uint32_t offset) {
     if (file->type == FILE_TYPE_FILE) {
@@ -95,36 +121,18 @@ uint32_t ramFsRead(RamFsFile *file, void *data, uint32_t size,
         return bytes_to_read;
     }
     if (file->type == FILE_TYPE_DIRECTORY) {
-        int32_t currentOffset = 0;
-        uint32_t bytes_written = 0;
+        FillDirData buf = {
+            .data = data,
+            .size = size,
+            .offset = offset,
+            .current_offset = 0,
+            .bytes_written = 0
+        };
         foreach (file->data, RamFsFile *, child, {
-            uint32_t entry_size =
-                sizeof(posix_dirent) + strlen(child->name) + 1;
-            if (currentOffset + entry_size < offset) {
-                currentOffset += entry_size;
-                continue;
-            }
-            if (currentOffset > offset + size) {
-                break;
-            }
-            posix_dirent *dirent = malloc(entry_size);
-            dirent->d_ino = -1;
-            memcpy(child->name, dirent->d_name, strlen(child->name) + 1);
-            dirent->d_reclen = entry_size;
-            dirent->d_type = file->type;
-            uint32_t copy_len = MIN(MAX(MIN((offset + size) - currentOffset,
-                           (currentOffset + entry_size) - offset),
-                       0), entry_size);
-            memcpy(dirent + MAX((int32_t)(offset - currentOffset), 0),
-                   data + MAX(currentOffset - offset, 0),
-                   copy_len);
-            free(dirent);
-            currentOffset += copy_len;
-            bytes_written += copy_len;
+            fill_dirent(&buf, child->name, file->type);
         })
             ;
-
-        return bytes_written;
+        return buf.bytes_written;
     }
 }
 

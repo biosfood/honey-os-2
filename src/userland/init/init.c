@@ -1,5 +1,3 @@
-#include "../../include/dirent.h"
-
 #include <dirent.h>
 #include <fnctl.h>
 #include <pthread.h>
@@ -78,13 +76,26 @@ int main() {
     posix_dirent *data = malloc(4096);
     int len = read(pcidevs, data, 4096);
     posix_dirent *current = data;
+    int classnameFiledes;
+    char *classnameFilename = NULL;
     while (len) {
         if (!current->d_reclen) {
             break;
         }
-        printf("%s\n", (char*)current->d_name);
+        char *name;
+        asprintf(&name, "%s", (char*)current->d_name);
+        asprintf(&classnameFilename, "/dev/pci/%s/class_name", current->d_name);
+        classnameFiledes = open(classnameFilename, 0);
+        char *classname = malloc(100);
+        read(classnameFiledes, classname, 100);
+        close(classnameFiledes);
+        char *test;
+        int len = asprintf(&test, "%s: %s\n", classnameFilename, classname);
+        printf("%s: %s\n", classnameFilename, classname);
+        free(classname);
+        free(classnameFilename);
         len -= current->d_reclen;
-        current = ((void*) current) + current->d_reclen;
+        current = ((void *)current) + current->d_reclen;
     }
     free(data);
     printf("done\n");

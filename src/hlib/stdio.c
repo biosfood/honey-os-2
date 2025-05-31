@@ -142,14 +142,16 @@ void handleInsert(char **write, char insertType, uintptr_t x) {
 }
 uint32_t ioManager, logFunction;
 
-uint32_t printfSize(const char *format, const va_list ap) {
+uint32_t printfSize(char *format, va_list ap) {
     uint32_t size = 0;
-    for (; format[size] != 0; size++) {
-        if (format[size] == '%') {
-            char insertType = format[++size];
+    while (*format != 0) {
+        if (*format == '%') {
+            char insertType = *++format;
             size += getInsertLength(insertType, va_arg(ap, uintptr_t));
-            continue;
+        } else {
+            size++;
         }
+        format++;
     }
     return size;
 }

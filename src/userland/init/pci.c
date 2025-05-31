@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
+#include <fnctl.h>
 
 #include <hlib.h>
 
@@ -117,6 +119,13 @@ void checkFunction(uint8_t bus, uint8_t device, uint8_t function) {
     asprintf(&path, "/dev/pci/%i:%i.%i", bus, device, function);
     mkdir(path, 0);
     free(path);
+
+    asprintf(&path, "/dev/pci/%i:%i.%i/class_name", bus, device, function);
+    int fd = open(path,O_CREAT);
+    write(fd, classNames[pciDevice->class], strlen(classNames[pciDevice->class]) + 1);
+    close(fd);
+    free(path);
+
     pciDevice->id = listCount(pciDevices);
     listAdd(&pciDevices, pciDevice);
     if (class == 6 && pciDevice->subclass == 4) {
@@ -165,12 +174,8 @@ void initializePci() {
 }
 
 void initPCI() {
-    printf("initializing PIC bus... ");
+    printf("indexing PIC bus... ");
     mkdir("/dev/pci", 0);
     initializePci();
-    printf("done.\ndumping PIC decices:\n");
-    foreach (pciDevices, PciDevice *, device, {
-        printf("[%i:%i:%i]: %s\n", device->bus, device->device,
-               device->function, classNames[device->class]);
-    })
+    printf("done.\n");
 }

@@ -47,44 +47,43 @@ File *mountlist_get_file(FileSystem *file_system, char *path) {
     }
     char *realpath =
         combineStrings(mount->pathOffset, path + strlen(mount->mountPoint));
-    char *nextStep = malloc(strlen(realpath) + 1);
-    memset(nextStep, 0, strlen(realpath) + 1);
-    uint32_t position = 0;
-    uint32_t pathPosition = strlen(mount->mountPoint);
-    for (int i = 0; i < strlen(mount->pathOffset); i++) {
-        nextStep[position] = realpath[position];
-        position++;
-    }
-    if (realpath[0] == '/' && !realpath[1]) {
-        free(realpath);
-        free(nextStep);
-        return mount->file_system->type->getFile(mount->file_system, "/");
-    }
-    File *file = NULL;
-    while (position != strlen(realpath)) {
-        while (path[pathPosition] && path[pathPosition] != '/') {
-            nextStep[position] = path[pathPosition];
-            position++;
-            pathPosition++;
-        }
-        file = mount->file_system->type->getFile(mount->file_system, nextStep);
-        if (file->type == FILE_TYPE_LINK) {
-            // TODO
-            // if symbolic link, findFile(newPath, mountlist)
-            while (1)
-                ;
-        }
-        if (file->type == FILE_TYPE_DIRECTORY && position != strlen(realpath)) {
-            nextStep[position] = path[pathPosition];
-            position++;
-            pathPosition++;
-            continue;
-        }
-        break;
-    }
-
+    // char *nextStep = malloc(strlen(realpath) + 1);
+    // memset(nextStep, 0, strlen(realpath) + 1);
+    // uint32_t position = 0;
+    // uint32_t pathPosition = strlen(mount->mountPoint);
+    // for (int i = 0; i < strlen(mount->pathOffset); i++) {
+    //     nextStep[position] = realpath[position];
+    //     position++;
+    // }
+    // if (realpath[0] == '/' && !realpath[1]) {
+    //     free(realpath);
+    //     free(nextStep);
+    //     return mount->file_system->type->getFile(mount->file_system, "/");
+    // }
+    // File *file = NULL;
+    // while (position != strlen(realpath)) {
+    //     while (path[pathPosition] && path[pathPosition] != '/') {
+    //         nextStep[position] = path[pathPosition];
+    //         position++;
+    //         pathPosition++;
+    //     }
+    //     file = mount->file_system->type->getFile(mount->file_system, nextStep);
+    //     if (file->type == FILE_TYPE_LINK) {
+    //         // TODO
+    //         // if symbolic link, findFile(newPath, mountlist)
+    //         while (1)
+    //             ;
+    //     }
+    //     if (file->type == FILE_TYPE_DIRECTORY && position != strlen(realpath)) {
+    //         nextStep[position] = path[pathPosition];
+    //         position++;
+    //         pathPosition++;
+    //         continue;
+    //     }
+    //     break;
+    // }
+    File *file = mount->file_system->type->getFile(mount->file_system, realpath);
     free(realpath);
-    free(nextStep);
     return file;
 }
 

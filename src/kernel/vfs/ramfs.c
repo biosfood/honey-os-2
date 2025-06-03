@@ -94,7 +94,7 @@ void fill_dirent(FillDirData *buf, char *name, int file_type) {
         return;
     }
     posix_dirent *dirent = malloc(entry_size);
-    dirent->d_ino = -1;
+    dirent->d_ino = U32(name); // just needs to be unique, and in ramfs, the address of the filename is unique for each file...
     memcpy(name, dirent->d_name, strlen(name) + 1);
     dirent->d_reclen = entry_size;
     dirent->d_type = file_type;

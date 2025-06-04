@@ -19,6 +19,9 @@ all: $(PROGRAMS)
 	@echo "packing files into rootfs/initrd.tar"
 	@(cd ../../initrd && tar cf ../rootfs/initrd.tar --transform='s|^|/|' --show-transformed-names -v  *)
 
+clean:
+	@rm -r build
+
 .SUFFIXES:
 
 define MAKE_PROGRAM

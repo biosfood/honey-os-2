@@ -86,14 +86,15 @@ int main() {
         asprintf(&name, "%s", (char*)current->d_name);
         asprintf(&classnameFilename, "/dev/pci/%s/class_name", current->d_name);
         classnameFiledes = open(classnameFilename, 0);
-        char *classname = malloc(100);
-        read(classnameFiledes, classname, 100);
-        close(classnameFiledes);
-        char *test;
-        int len = asprintf(&test, "%s: %s\n", classnameFilename, classname);
-        printf("%s: %s\n", classnameFilename, classname);
-        free(classname);
         free(classnameFilename);
+
+        struct stat stat;
+        fstat(classnameFiledes, &stat);
+        char *classname = malloc(stat.st_size);
+        read(classnameFiledes, classname, stat.st_size);
+        printf("%s (%i): %s\n", classnameFilename, stat.st_size, classname);
+        free(classname);
+        close(classnameFiledes);
         len -= current->d_reclen;
         current = ((void *)current) + current->d_reclen;
     }

@@ -84,8 +84,7 @@ void ramFsWrite(RamFsFile *file, void *data, uint32_t size, uint32_t offset) {
 }
 
 void fill_dirent(FillDirData *buf, char *name, int file_type) {
-    uint32_t entry_size =
-        sizeof(posix_dirent) + strlen(name) + 1;
+    uint32_t entry_size = sizeof(posix_dirent) + strlen(name) + 1;
     if (buf->current_offset + entry_size < buf->offset) {
         buf->current_offset += entry_size;
         return;
@@ -94,16 +93,19 @@ void fill_dirent(FillDirData *buf, char *name, int file_type) {
         return;
     }
     posix_dirent *dirent = malloc(entry_size);
-    dirent->d_ino = U32(name); // just needs to be unique, and in ramfs, the address of the filename is unique for each file...
+    dirent->d_ino =
+        U32(name); // just needs to be unique, and in ramfs, the address of the
+                   // filename is unique for each file...
     memcpy(name, dirent->d_name, strlen(name) + 1);
     dirent->d_reclen = entry_size;
     dirent->d_type = file_type;
-    uint32_t copy_len = MIN(MAX(MIN((buf->offset + buf->size) - buf->current_offset,
-                   (buf->current_offset + entry_size) - buf->offset),
-               0), entry_size);
+    uint32_t copy_len =
+        MIN(MAX(MIN((buf->offset + buf->size) - buf->current_offset,
+                    (buf->current_offset + entry_size) - buf->offset),
+                0),
+            entry_size);
     memcpy(dirent + MAX((int32_t)(buf->offset - buf->current_offset), 0),
-           buf->data + MAX(buf->current_offset - buf->offset, 0),
-           copy_len);
+           buf->data + MAX(buf->current_offset - buf->offset, 0), copy_len);
     free(dirent);
     buf->current_offset += copy_len;
     buf->bytes_written += copy_len;
@@ -121,23 +123,28 @@ uint32_t ramFsRead(RamFsFile *file, void *data, uint32_t size,
         return bytes_to_read;
     }
     if (file->type == FILE_TYPE_DIRECTORY) {
-        FillDirData buf = {
-            .data = data,
-            .size = size,
-            .offset = offset,
-            .current_offset = 0,
-            .bytes_written = 0
-        };
-        foreach (file->data, RamFsFile *, child, {
-            fill_dirent(&buf, child->name, file->type);
-        })
+        FillDirData buf = {.data = data,
+                           .size = size,
+                           .offset = offset,
+                           .current_offset = 0,
+                           .bytes_written = 0};
+        foreach (file->data, RamFsFile *, child,
+                 { fill_dirent(&buf, child->name, file->type); })
             ;
         return buf.bytes_written;
     }
 }
 
 uint32_t ramFsGetattr(RamFsFile *file, struct stat *buf) {
-    buf->st_size = file->size;
+    if (file->type == FILE_TYPE_DIRECTORY) {
+        uint32_t size = 0;
+        foreach (file->data, RamFsFile *, child,
+                 { size += sizeof(posix_dirent) + strlen(child->name) + 1; })
+            ;
+        buf->st_size = size;
+    } else {
+        buf->st_size = file->size;
+    }
     buf->st_ino = U32(file->data);
 }
 

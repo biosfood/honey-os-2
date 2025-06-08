@@ -52,6 +52,7 @@ int test() {
 extern void initPCI();
 
 int main() {
+    struct stat stat;
     portFd = open("/kernel/port", 0);
     mkdir("/dev/", 0);
     mkfifo("/dev/serout", 0);
@@ -73,8 +74,9 @@ int main() {
     initPCI();
 
     int pcidevs = open("/dev/pci", 0);
-    posix_dirent *data = malloc(4096);
-    int len = read(pcidevs, data, 4096);
+    fstat(pcidevs, &stat);
+    posix_dirent *data = malloc(stat.st_size);
+    int len = read(pcidevs, data, stat.st_size);
     posix_dirent *current = data;
     int classnameFiledes;
     char *classnameFilename = NULL;
@@ -82,17 +84,14 @@ int main() {
         if (!current->d_reclen) {
             break;
         }
-        char *name;
-        asprintf(&name, "%s", (char*)current->d_name);
         asprintf(&classnameFilename, "/dev/pci/%s/class_name", current->d_name);
         classnameFiledes = open(classnameFilename, 0);
-        free(classnameFilename);
 
-        struct stat stat;
         fstat(classnameFiledes, &stat);
         char *classname = malloc(stat.st_size);
         read(classnameFiledes, classname, stat.st_size);
         printf("%s (%i): %s\n", classnameFilename, stat.st_size, classname);
+        free(classnameFilename);
         free(classname);
         close(classnameFiledes);
         len -= current->d_reclen;

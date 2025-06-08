@@ -5,6 +5,8 @@
 #ifndef VFS_H
 #define VFS_H
 #include <util.h>
+#include <sys/stat.h>
+
 struct FileSystem;
 struct File;
 struct FileDescriptor;
@@ -80,6 +82,7 @@ typedef struct {
     File *(*create)(File *file, char *path, enum FileType type);
     uint32_t (*write)(File *file, void *data, uint32_t size, uint32_t offset);
     uint32_t (*read)(File *file, void *data, uint32_t size, uint32_t offset);
+    uint32_t (*getattr)(File *file, struct stat *stbuf);
 } FileSystemType;
 
 typedef struct FileSystem {

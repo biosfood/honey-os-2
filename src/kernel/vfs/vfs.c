@@ -6,6 +6,7 @@
 
 #include <process.h>
 #include <stddef.h>
+#include <sys/stat.h>
 
 void handleCreateFileSyscall(ProcessThread *thread) {
     char *mapped_name = mapTemporaryB(
@@ -153,3 +154,41 @@ void handleCloseSyscall(ProcessThread *thread) {
     thread->returnValue = 0;
     thread->resume = true;
 }
+
+void handleStatSyscall(ProcessThread *thread) {
+    FileDescriptor *file_descriptor = NULL;
+    foreach (thread->process->openFileHandles, FileDescriptor *, descriptor, {
+        if (thread->parameters[0] == descriptor->id) {
+            file_descriptor = descriptor;
+        }
+    })
+        ;
+    if (file_descriptor == NULL) {
+        thread->returnValue = -1;
+        thread->resume = true;
+        return;
+    }
+    struct stat buf;
+    file_descriptor->file->file_system->type->getattr(
+        file_descriptor->file, &buf
+    );
+
+    char *threadWrite = PTR(thread->parameters[1]);
+    char *write = mapTemporaryA(getPhysicalAddress(
+        thread->process->memory_information.pageDirectory, threadWrite));
+    char *read = (void*)&buf;
+    for (int i = 0; i < sizeof(struct stat); i++) {
+        if ((U32(write) & 0xFFF) == 0) {
+            write = mapTemporaryA(getPhysicalAddress(
+                thread->process->memory_information.pageDirectory,
+                threadWrite));
+        }
+        *write = *read;
+        write++;
+        read++;
+        threadWrite++;
+    }
+    thread->resume = true;
+    thread->returnValue = 0;
+}
+

@@ -136,11 +136,17 @@ uint32_t ramFsRead(RamFsFile *file, void *data, uint32_t size,
     }
 }
 
+uint32_t ramFsGetattr(RamFsFile *file, struct stat *buf) {
+    buf->st_size = file->size;
+    buf->st_ino = U32(file->data);
+}
+
 FileSystemType ramfsType = {
     .getFile = ramFsGet,
     .create = ramFsCreate,
     .write = ramFsWrite,
     .read = ramFsRead,
+    .getattr = ramFsGetattr,
 };
 
 FileSystem *createRamfs() {

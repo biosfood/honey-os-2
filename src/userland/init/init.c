@@ -16,6 +16,7 @@ int main() {
     struct stat stat;
     mkdir("/dev/", 0);
     mkfifo("/dev/serout", 0);
+    portFd = open("/kernel/port", 0);
 
     // reassign STDOUT
     close(STDOUT_FILENO);
@@ -25,7 +26,6 @@ int main() {
     if (!pid) {
         execv("/bin/serial", NULL);
     }
-    return;
 
     printf("Hello World!\n");
     const int messageFile = open("/kernel/cpuid", 0);

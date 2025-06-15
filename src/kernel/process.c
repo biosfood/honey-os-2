@@ -373,4 +373,14 @@ void handleForkSyscall(ProcessThread *thread) {
     thread->resume = true;
 }
 
-void handleExecSyscall(ProcessThread *thread) {}
+void handleExecSyscall(ProcessThread *thread) {
+    // TODO: remove old threads
+    // TODO: transfer data
+    // TODO: clear memory
+    void *physical = getPhysicalAddress(thread->process->memory_information.pageDirectory, PTR(thread->parameters[0]));
+    uint32_t len = strlen(mapTemporaryA(physical));
+    char *data = malloc(len);
+    memcpy(mapTemporaryA(physical), data, len + 1);
+    File *file = thread->process->container->vfs->type->getFile(thread->process->container->vfs, data);
+    processLoadELF(thread->process, file);
+}

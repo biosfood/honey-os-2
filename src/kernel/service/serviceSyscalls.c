@@ -111,13 +111,3 @@ void handleStackContainsSyscall(Thread *call) {
     }
     call->returnValue = 0;
 }
-
-void handleForkSyscall(Thread *call) {
-    Service *service = call->service;
-    ServiceFunction function = {
-        .service = service,
-        .address = PTR(call->parameters[0]),
-        .name = "forked function",
-    };
-    scheduleFunction(&function, NULL, call->parameters[1], call->parameters[2], call->parameters[3]);
-}

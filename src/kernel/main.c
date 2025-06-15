@@ -14,18 +14,6 @@ AllocationBlock *allocationData[12];
 
 uint32_t id_counter = 1;
 
-Process *newProcess(Container *container) {
-    Process *process = malloc(sizeof(Process));
-    process->id = id_counter++;
-    process->container = container;
-    listAdd(&container->processes, process);
-    process->memory_information.pageDirectory = malloc(0x1000);
-    process->cr3 =
-        getPhysicalAddressKernel(process->memory_information.pageDirectory);
-    process->threads = NULL;
-    return process;
-}
-
 Container *newContainer(FileSystem *fs) {
     Container *container = malloc(sizeof(Container));
     container->id = id_counter++;

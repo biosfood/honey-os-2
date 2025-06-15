@@ -51,6 +51,7 @@ $(BUILD_FOLDER)/%.s.o: %.s
 	@$(CC) $(CCFLAGS) -r $< -o $@
 
 userPrograms: initrd
+	@echo 'making user programs'
 	@make --silent -C src/userland
 
 hlib: initrd

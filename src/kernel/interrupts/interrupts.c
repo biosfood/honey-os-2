@@ -18,8 +18,8 @@ extern uint32_t getServiceId(Service *service);
 
 ListElement *interruptSubscriptions[255];
 
-__attribute__((section(".sharedFunctions"))) __attribute__((aligned(0x10)))
-IdtEntry idtEntries[256] = {};
+__attribute__((section(".sharedFunctions")))
+__attribute__((aligned(0x10))) IdtEntry idtEntries[256] = {};
 
 ListElement *exceptionSubscriptions;
 
@@ -28,18 +28,22 @@ void onInterrupt(void *cr3, uint32_t d, uint32_t c, uint32_t b, uint32_t a,
     foreach (interruptSubscriptions[intNo], ServiceFunction *, provider,
              { scheduleFunction(provider, NULL, intNo); })
         ;
-    // TODO: here, a 'syscall(0)' should happen to allow other processes to also do stuff
+    // TODO: here, a 'syscall(0)' should happen to allow other processes to also
+    // do stuff
 }
 
 void onException(void *ebp, void *cr3, uint32_t d, uint32_t c, uint32_t b,
                  uint32_t a, uint32_t intNo, uint32_t errorCode, uint32_t eip) {
+
+    while (1)
+        ;
     // foreach (interruptSubscriptions[0], ServiceFunction *, provider, {
     //     Service *service = (Service *)current_thread->service;
     //     scheduleFunction(
     //         provider, current_thread->respondingTo, intNo, errorCode, eip,
     //         U32(getPhysicalAddress(
-    //             ((Service *)current_thread->service)->pagingInfo.pageDirectory,
-    //             ebp)),
+    //             ((Service
+    //             *)current_thread->service)->pagingInfo.pageDirectory, ebp)),
     //         service->nameHash, getServiceId(service));
     // })
     //     ;

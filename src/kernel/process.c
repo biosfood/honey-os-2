@@ -200,7 +200,8 @@ void handleWriteSyscall(ProcessThread *thread) {
         }
         uint32_t bytes_transfered =
             file_descriptor->file->file_system->type->write(
-                file_descriptor->file, data, thread->parameters[2], thread->parameters[3]);
+                file_descriptor->file, data, thread->parameters[2],
+                thread->parameters[3]);
         free(data);
         thread->returnValue = bytes_transfered;
         thread->resume = true;
@@ -301,3 +302,75 @@ void handleReadSyscall(ProcessThread *thread) {
         thread->returnValue = bytes_to_transfer;
     }
 }
+
+Process *newProcess(Container *container) {
+    Process *process = malloc(sizeof(Process));
+    process->id = id_counter++;
+    process->container = container;
+    listAdd(&container->processes, process);
+    process->memory_information.pageDirectory = malloc(0x1000);
+    process->cr3 =
+        getPhysicalAddressKernel(process->memory_information.pageDirectory);
+    process->threads = NULL;
+    return process;
+}
+
+void cloneMemoryInformation(PagingInfo *from, PagingInfo *to) {
+    memcpy(from, to, sizeof(PagingInfo));
+    to->pageDirectory = malloc(0x1000);
+    memcpy(from->pageDirectory, to->pageDirectory, 0x1000);
+
+    for (uint32_t i = 0; i < 0x1000 / 4; i++) {
+        if (!from->pageDirectory[i].present) {
+            continue;
+        }
+        PageTableEntry *entry = malloc(0x1000);
+        memcpy(mapTemporaryA(ADDRESS(from->pageDirectory[i].pageTableID)),
+               entry, 0x1000);
+        to->pageDirectory[i].pageTableID =
+            PAGE_ID(getPhysicalAddressKernel(entry));
+    }
+}
+
+void handleForkSyscall(ProcessThread *thread) {
+    Process *process = newProcess(thread->process->container);
+    cloneMemoryInformation(&thread->process->memory_information,
+                           &process->memory_information);
+    process->cr3 =
+        getPhysicalAddressKernel(process->memory_information.pageDirectory);
+    process->threads = NULL;
+    listAdd(&thread->process->container->processes, process);
+    process->container = thread->process->container;
+    ProcessThread *new_thread = malloc(sizeof(ProcessThread));
+    memset(new_thread, 0, sizeof(ProcessThread));
+    new_thread->id = id_counter++;
+    new_thread->process = process;
+    listAdd(&(process->threads), new_thread);
+    new_thread->function = 0;
+
+    new_thread->esp = malloc(0x1000);
+    sharePage(&process->memory_information, new_thread->esp, new_thread->esp);
+    // copy the stack from the old to the new thread, but then we have to
+    // rewrite all the pushed ebps.
+    memcpy(ADDRESS(PAGE_ID(thread->esp)), new_thread->esp, 0x1000);
+    new_thread->esp += PAGE_OFFSET(thread->esp);
+    uint32_t *stack = new_thread->esp + 0x1C;
+    *stack = PAGE_OFFSET(*stack) + U32(ADDRESS(PAGE_ID(stack)));
+    stack = PTR(*stack);
+
+    foreach (thread->process->openFileHandles, FileDescriptor *,
+             file_descriptor, {
+                 FileDescriptor *new = malloc(sizeof(FileDescriptor));
+                 memcpy(file_descriptor, new, sizeof(FileDescriptor));
+                 listAdd(&process->openFileHandles, new);
+             })
+        ;
+
+    new_thread->returnValue = 0;
+    listAdd(&threads_to_process, new_thread);
+
+    thread->returnValue = process->id;
+    thread->resume = true;
+}
+
+void handleExecSyscall(ProcessThread *thread) {}

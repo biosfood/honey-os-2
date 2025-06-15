@@ -77,6 +77,7 @@ extern uintptr_t handleWriteSyscall;
 extern uintptr_t handleStatSyscall;
 extern uintptr_t handleCreateFileSyscall;
 extern uintptr_t handleMmapSyscall, handleMunmapSyscall;
+extern uintptr_t handleExecSyscall;
 
 void (*syscallHandlers[])(ProcessThread *) = {
     0,
@@ -113,6 +114,7 @@ void (*syscallHandlers[])(ProcessThread *) = {
     (void *) &handleMunmapSyscall,
     (void *) &handleCloseSyscall,
     (void *) &handleStatSyscall,
+    (void *) &handleExecSyscall,
 };
 
 extern uint32_t thread_return_value, thread_cr3, thread_esp;

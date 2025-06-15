@@ -26,7 +26,7 @@ clean:
 
 define MAKE_PROGRAM
 
-../../initrd/bin/$(1): $(2)
+../../initrd/bin/$(1): $(2) ../../build/hlib.a
 	@echo "linking $(1) from $$^"
 	@$(LD) $(LD_FLAGS) -o $$@ $$^
 

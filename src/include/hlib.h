@@ -71,7 +71,6 @@ extern void *listGet(ListElement *list, uint32_t position);
 extern bool listRemoveValue(ListElement **list, void *value);
 extern void *getPhysicalAddress(void *address);
 extern void sleep(uint32_t millis);
-extern uint32_t fork(void (f)(), void *, void *, void *);
 
 extern void _listAdd(AllocationData, ListElement **list, void *data);
 #define listAdd(list, data) _listAdd(allocationData, list, data)

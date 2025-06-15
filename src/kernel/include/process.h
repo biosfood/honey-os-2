@@ -53,5 +53,6 @@ extern void *runEnd;
 
 extern void processThread(ProcessThread *thread);
 extern ProcessThread *processLoadELF(Process *process, File *elfStart);
+extern Process *newProcess(Container *container);
 
 #endif // PROCESS_H

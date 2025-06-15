@@ -16,5 +16,8 @@ extern ssize_t pread(int filedes, void *buf, size_t nbyte, off_t offset);
 extern ssize_t write(int, void *, size_t);
 extern ssize_t pwrite(int filedes, void *buf, size_t nbyte, off_t offset);
 extern int close(int fildes);
+extern pid_t fork(void);
+
+extern int execv(const char *path, char *const argv[]);
 
 #endif //UNISTD_H

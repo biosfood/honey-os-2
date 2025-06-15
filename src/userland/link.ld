@@ -1,8 +1,6 @@
 OUTPUT_ARCH(i386)
 ENTRY(main)
 
-INPUT( ../../build/hlib.a)
-
 SECTIONS {
     . = 0x80000000;
     .text : {

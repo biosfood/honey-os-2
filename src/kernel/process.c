@@ -3,6 +3,71 @@
 #include <stddef.h>
 #include <vfs.h>
 
+void *copy_from_process_to_kernel(const Process *process, void *threadRead,
+                                  const uint32_t bytes_to_transfer) {
+    uint8_t *result = malloc(bytes_to_transfer);
+    uint8_t *write = result;
+    uint8_t *read = mapTemporaryA(getPhysicalAddress(
+        process->memory_information.pageDirectory, threadRead));
+    // just copying byte for byte here
+    for (int i = 0; i < bytes_to_transfer; ++i) {
+        if ((U32(read) & 0xFFF) == 0) {
+            read = mapTemporaryA(getPhysicalAddress(
+                process->memory_information.pageDirectory, threadRead));
+        }
+        *write = *read;
+        write++;
+        read++;
+        threadRead++;
+    }
+    return result;
+}
+
+void copy_from_kernel_to_process(uint8_t *read, Process *process,
+                                 uint8_t *threadWrite,
+                                 uint32_t bytes_to_transfer) {
+    uint8_t *write = mapTemporaryA(getPhysicalAddress(
+        process->memory_information.pageDirectory, threadWrite));
+    for (int i = 0; i < bytes_to_transfer; i++) {
+        if ((U32(write) & 0xFFF) == 0) {
+            write = mapTemporaryA(getPhysicalAddress(
+                process->memory_information.pageDirectory,
+                threadWrite));
+        }
+        *write = *read;
+        write++;
+        read++;
+        threadWrite++;
+    }
+}
+
+void copy_between_processes(const ProcessThread *readThread, void *from,
+                            const ProcessThread *writeThread, void *to,
+                            const uint32_t bytes_to_transfer) {
+
+    char *write = getPhysicalAddress(
+        writeThread->process->memory_information.pageDirectory, to);
+    char *read = getPhysicalAddress(
+        readThread->process->memory_information.pageDirectory, from);
+    write = mapTemporaryA(write);
+    read = mapTemporaryB(read);
+    for (int i = 0; i < bytes_to_transfer; i++) {
+        if ((U32(read) & 0xFFF) == 0 || (U32(write) & 0xFFF) == 0) {
+            read = getPhysicalAddress(
+                readThread->process->memory_information.pageDirectory, from);
+            write = getPhysicalAddress(
+                writeThread->process->memory_information.pageDirectory, to);
+            write = mapTemporaryA(write);
+            read = mapTemporaryB(read);
+        }
+        *write = *read;
+        write++;
+        read++;
+        from++;
+        to++;
+    }
+}
+
 void handlePthreadCreateSyscall(ProcessThread *thread) {
     ProcessThread *new_thread = malloc(sizeof(ProcessThread));
     memset(new_thread, 0, sizeof(ProcessThread));
@@ -103,32 +168,9 @@ void handleWriteSyscall(ProcessThread *thread) {
             uint32_t bytes_to_transfer =
                 MIN(writeThread->parameters[2], readThread->parameters[2]);
             char *threadWrite = PTR(writeThread->parameters[1]);
-            char *write = getPhysicalAddress(
-                writeThread->process->memory_information.pageDirectory,
-                threadWrite);
             char *threadRead = PTR(readThread->parameters[1]);
-            char *read = getPhysicalAddress(
-                readThread->process->memory_information.pageDirectory,
-                threadRead);
-            write = mapTemporaryA(write);
-            read = mapTemporaryB(read);
-            for (int i = 0; i < bytes_to_transfer; i++) {
-                if ((U32(read) & 0xFFF) == 0 || (U32(write) & 0xFFF) == 0) {
-                    read = getPhysicalAddress(
-                        readThread->process->memory_information.pageDirectory,
-                        threadRead);
-                    write = getPhysicalAddress(
-                        writeThread->process->memory_information.pageDirectory,
-                        threadWrite);
-                    write = mapTemporaryA(write);
-                    read = mapTemporaryB(read);
-                }
-                *write = *read;
-                write++;
-                read++;
-                threadRead++;
-                threadWrite++;
-            }
+            copy_between_processes(readThread, threadRead, writeThread,
+                                   threadWrite, bytes_to_transfer);
             file->blockedReadingThread = NULL;
             writeThread->returnValue = bytes_to_transfer;
             readThread->returnValue = bytes_to_transfer;
@@ -138,67 +180,25 @@ void handleWriteSyscall(ProcessThread *thread) {
                 PipeData *entry = malloc(sizeof(PipeData));
                 entry->length = thread->parameters[2] - bytes_to_transfer;
                 entry->data = malloc(entry->length);
-                write = entry->data;
-                threadRead = PTR(thread->parameters[1]) + bytes_to_transfer;
-                read = mapTemporaryA(getPhysicalAddress(
-                    thread->process->memory_information.pageDirectory,
-                    threadRead));
-                // just copying byte for byte here
-                for (int i = 0; i < entry->length; ++i) {
-                    if ((U32(read) & 0xFFF) == 0) {
-                        read = mapTemporaryA(getPhysicalAddress(
-                            thread->process->memory_information.pageDirectory,
-                            threadRead));
-                    }
-                    *write = *read;
-                    write++;
-                    read++;
-                    threadRead++;
-                }
+                entry->data = copy_from_process_to_kernel(
+                    thread->process,
+                    PTR(writeThread->parameters[1]) + bytes_to_transfer,
+                    entry->length);
                 listAdd(&file->queue, entry);
             }
         } else {
             PipeData *entry = malloc(sizeof(PipeData));
             entry->length = thread->parameters[2];
-            entry->data = malloc(entry->length);
-            char *write = entry->data;
-            void *threadRead = PTR(thread->parameters[1]);
-            char *read = mapTemporaryA(getPhysicalAddress(
-                thread->process->memory_information.pageDirectory, threadRead));
-            // just copying byte for byte here
-            for (int i = 0; i < entry->length; ++i) {
-                if ((U32(read) & 0xFFF) == 0) {
-                    read = mapTemporaryA(getPhysicalAddress(
-                        thread->process->memory_information.pageDirectory,
-                        threadRead));
-                }
-                *write = *read;
-                write++;
-                read++;
-                threadRead++;
-            }
+            entry->data = copy_from_process_to_kernel(
+                thread->process, PTR(thread->parameters[1]),
+                thread->parameters[2]);
             listAdd(&file->queue, entry);
             thread->resume = true;
         }
     } else {
-        void *data = malloc(thread->parameters[2]);
-        char *write = data;
-        void *threadRead = PTR(thread->parameters[1]);
-        char *read = mapTemporaryA(getPhysicalAddress(
-            thread->process->memory_information.pageDirectory, threadRead));
-        // just copying byte for byte here
-        for (int i = 0; i < thread->parameters[2]; ++i) {
-            if ((U32(read) & 0xFFF) == 0) {
-                read = mapTemporaryA(getPhysicalAddress(
-                    thread->process->memory_information.pageDirectory,
-                    threadRead));
-            }
-            *write = *read;
-            write++;
-            read++;
-            threadRead++;
-        }
-        uint32_t bytes_transfered =
+        void *data = copy_from_process_to_kernel(
+            thread->process, PTR(thread->parameters[1]), thread->parameters[2]);
+        const uint32_t bytes_transfered =
             file_descriptor->file->file_system->type->write(
                 file_descriptor->file, data, thread->parameters[2],
                 thread->parameters[3]);
@@ -213,21 +213,9 @@ void fifo_read(ProcessThread *thread, FileDescriptor *file_descriptor) {
     if (file->queue) {
         PipeData *data = listPopFirst(&file->queue);
         uint32_t bytes_to_transfer = MIN(thread->parameters[2], data->length);
-        char *threadWrite = PTR(thread->parameters[1]);
-        char *write = mapTemporaryA(getPhysicalAddress(
-            thread->process->memory_information.pageDirectory, threadWrite));
-        char *read = data->data;
-        for (int i = 0; i < bytes_to_transfer; i++) {
-            if ((U32(write) & 0xFFF) == 0) {
-                write = mapTemporaryA(getPhysicalAddress(
-                    thread->process->memory_information.pageDirectory,
-                    threadWrite));
-            }
-            *write = *read;
-            write++;
-            read++;
-            threadWrite++;
-        }
+        copy_from_kernel_to_process(data->data, thread->process,
+                                    PTR(thread->parameters[1]),
+                                    bytes_to_transfer);
         if (data->length > thread->parameters[2]) {
             // some data is left over. Just making a new entry and putting
             // it right at the beginning of the queue
@@ -281,22 +269,9 @@ void handleReadSyscall(ProcessThread *thread) {
             file_descriptor->file->file_system->type->read(
                 file_descriptor->file, data, thread->parameters[2],
                 thread->parameters[3]);
-
-        char *threadWrite = PTR(thread->parameters[1]);
-        char *write = mapTemporaryA(getPhysicalAddress(
-            thread->process->memory_information.pageDirectory, threadWrite));
-        char *read = data;
-        for (int i = 0; i < bytes_to_transfer; i++) {
-            if ((U32(write) & 0xFFF) == 0) {
-                write = mapTemporaryA(getPhysicalAddress(
-                    thread->process->memory_information.pageDirectory,
-                    threadWrite));
-            }
-            *write = *read;
-            write++;
-            read++;
-            threadWrite++;
-        }
+        bytes_to_transfer = MIN(bytes_to_transfer, thread->parameters[2]);
+        copy_from_kernel_to_process(
+            data, thread->process, PTR(thread->parameters[1]), bytes_to_transfer);
         free(data);
         thread->resume = true;
         thread->returnValue = bytes_to_transfer;
@@ -377,10 +352,13 @@ void handleExecSyscall(ProcessThread *thread) {
     // TODO: remove old threads
     // TODO: transfer data
     // TODO: clear memory
-    void *physical = getPhysicalAddress(thread->process->memory_information.pageDirectory, PTR(thread->parameters[0]));
+    void *physical =
+        getPhysicalAddress(thread->process->memory_information.pageDirectory,
+                           PTR(thread->parameters[0]));
     uint32_t len = strlen(mapTemporaryA(physical));
     char *data = malloc(len);
     memcpy(mapTemporaryA(physical), data, len + 1);
-    File *file = thread->process->container->vfs->type->getFile(thread->process->container->vfs, data);
+    File *file = thread->process->container->vfs->type->getFile(
+        thread->process->container->vfs, data);
     processLoadELF(thread->process, file);
 }

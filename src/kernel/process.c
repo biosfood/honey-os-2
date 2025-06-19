@@ -1,4 +1,6 @@
 #include "service/elf.h"
+
+#include <iso646.h>
 #include <process.h>
 #include <stddef.h>
 #include <vfs.h>
@@ -67,13 +69,16 @@ void copy_between_processes(const ProcessThread *readThread, void *from,
     }
 }
 
-void *copy_string_from_process(const Process *process, const void * const from) {
+void *copy_string_from_process(const Process *process, const void *const from) {
     uint32_t len = 0;
     const uint8_t *current_from = from;
-    const uint8_t *read = mapTemporaryA(getPhysicalAddress(process->memory_information.pageDirectory, (void*)current_from));
+    const uint8_t *read = mapTemporaryA(getPhysicalAddress(
+        process->memory_information.pageDirectory, (void *)current_from));
     while (*read) {
         if ((U32(read) & 0xFFF) == 0) {
-            read = mapTemporaryA(getPhysicalAddress(process->memory_information.pageDirectory, (void*)current_from));
+            read = mapTemporaryA(
+                getPhysicalAddress(process->memory_information.pageDirectory,
+                                   (void *)current_from));
         }
         len++;
         read++;
@@ -105,6 +110,76 @@ void handlePthreadCreateSyscall(ProcessThread *thread) {
 extern void *functionsStart;
 extern void *functionsEnd;
 
+#define MAP(v, physical_mapping, address)                                      \
+    {                                                                          \
+        MemoryMapping *mapping = malloc(sizeof(MemoryMapping));                \
+        mapping->virtual = address;                                            \
+        mapping->physical = physical_mapping;                                  \
+        physical_mapping->refcount++;                                          \
+        mapping->copy_on_write = false;                                        \
+        listAdd(&v->mappings, mapping);                                        \
+    }
+
+PhysicalMemoryEntry kernel_functions_physical = {.physical = 0, 4, 0};
+
+VirtualMemoryEntry *process_map_memory_simple(Process *process,
+                                              PhysicalMemoryEntry *physical,
+                                              void *address) {
+    VirtualMemoryEntry *virtual = malloc(sizeof(VirtualMemoryEntry));
+    virtual->virtual = address;
+    virtual->process = process;
+
+    MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
+    mapping->virtual = address;
+    mapping->physical = physical;
+    physical->refcount++;
+    mapping->copy_on_write = false;
+
+    listAdd(&virtual->mappings, mapping);
+    listAdd(&process->virtual_memory_entries, virtual);
+}
+
+PhysicalMemoryEntry *get_single_page_physical_memory_entry() {
+    void *physical = getPhysicalPage();
+    PhysicalMemoryEntry *physical_memory_entry =
+        malloc(sizeof(PhysicalMemoryEntry));
+    physical_memory_entry->physical = physical;
+    physical_memory_entry->refcount = 0;
+    physical_memory_entry->page_count = 1;
+    return physical_memory_entry;
+}
+
+void build_starting_stack(ProcessThread *thread, void *start_position) {
+    Process *process = thread->process;
+    // build the initial stack, for starters just with a single page
+    PhysicalMemoryEntry *physical = get_single_page_physical_memory_entry();
+    // we will allocate a full 8MB for the virtual size of the stack, so we can
+    // extend it any time.
+    VirtualMemoryEntry *virtual = malloc(sizeof(VirtualMemoryEntry));
+    virtual->process = process;
+    virtual->virtual = ADDRESS(
+        findMultiplePages(&process->memory_information, 2048));
+    virtual->type = MEM_TYPE_STACK;
+    reservePagesCount(&process->memory_information, PAGE_ID(virtual->virtual),
+                      2048);
+
+    MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
+    mapping->physical = physical;
+    physical->refcount++;
+    mapping->virtual = ADDRESS(PAGE_ID(virtual->virtual) + 2047);
+    mapping->copy_on_write = false;
+
+    listAdd(&virtual->mappings, mapping);
+    listAdd(&process->virtual_memory_entries, virtual);
+
+    void *esp = mapTemporaryA(physical->physical);
+    esp += 0x1000 - 0x10;
+    *(void **)esp = start_position;
+    *(void **)(esp + 0x4) = &runEnd;
+
+    thread->esp = virtual->virtual + 4096 * 2048 - 0x10;
+}
+
 ProcessThread *processLoadELF(Process *process, File *file) {
     // use this function ONLY to load the initrd/loader program(maybe also the
     // ELF loader service)!
@@ -114,26 +189,36 @@ ProcessThread *processLoadELF(Process *process, File *file) {
     ElfHeader *header = file_data;
     ProgramHeader *programHeader =
         file_data + header->programHeaderTablePosition;
-    // fire load event
-    // fireEvent(loadInitrdEvent, service->nameHash, 0);
-    void *current = &functionsStart;
-    for (uint32_t i = 0; i < 3; i++) {
-        // todo: make this unwritable!
-        sharePage(&process->memory_information, current, current);
-        current += 0x1000;
+    if (!kernel_functions_physical.physical) {
+        kernel_functions_physical.physical =
+            getPhysicalAddressKernel(&functionsStart);
     }
+    process_map_memory_simple(process, &kernel_functions_physical,
+                              &functionsStart)
+        ->type = MEM_TYPE_KERNEL;
+
     // reserve first few pages to hopefully catch NULL pointers correctly
     reservePagesCount(&(process->memory_information), 0, 0x10);
     for (uint32_t i = 0; i < header->programHeaderEntryCount; i++) {
+        VirtualMemoryEntry *virtual = malloc(sizeof(VirtualMemoryEntry));
+        virtual->virtual = PTR(programHeader->virtualAddress);
+        virtual->process = process;
+        virtual->type = MEM_TYPE_PROGRAM_DATA;
+        virtual->mappings = NULL;
+        virtual->size = programHeader->segmentMemorySize;
+        listAdd(&process->virtual_memory_entries, virtual);
+
         for (uint32_t page = 0; page < programHeader->segmentMemorySize;
              page += 0x1000) {
-            void *data = malloc(0x1000);
+            PhysicalMemoryEntry *physical_memory_entry =
+                get_single_page_physical_memory_entry();
             if (programHeader->segmentFileSize > page) {
-                memcpy(file_data + programHeader->dataOffset + page, data,
+                void *mapped = mapTemporaryA(physical_memory_entry->physical);
+                memcpy(file_data + programHeader->dataOffset + page, mapped,
                        MIN(0x1000, programHeader->segmentFileSize - page));
             }
-            sharePage(&process->memory_information, data,
-                      PTR(programHeader->virtualAddress + page));
+            MAP(virtual, physical_memory_entry,
+                PTR(programHeader->virtualAddress + page));
         }
     end:
         programHeader = (void *)programHeader + header->programHeaderEntrySize;
@@ -144,11 +229,21 @@ ProcessThread *processLoadELF(Process *process, File *file) {
     thread->process = process;
     listAdd(&(process->threads), thread);
     thread->function = 0;
-    thread->esp = malloc(0x1000);
-    sharePage(&process->memory_information, thread->esp, thread->esp);
-    thread->esp += 0x1000 - 0x10;
-    *(void **)thread->esp = PTR(header->entryPosition);
-    *(void **)(thread->esp + 0x4) = &runEnd;
+    build_starting_stack(thread, PTR(header->entryPosition));
+
+    foreach (
+        process->virtual_memory_entries, VirtualMemoryEntry *,
+        virtual_memory_entry, {
+            foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
+                for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
+                    mapPage(&process->memory_information,
+                            mapping->physical->physical + 4096 * i,
+                            mapping->virtual + 4096 * i, true, false);
+                }
+            })
+                ;
+        })
+        ;
     listAdd(&threads_to_process, thread);
     free(file_data);
     return thread;
@@ -302,6 +397,7 @@ Process *newProcess(Container *container) {
     process->cr3 =
         getPhysicalAddressKernel(process->memory_information.pageDirectory);
     process->threads = NULL;
+    process->openFileHandles = NULL;
     return process;
 }
 
@@ -337,17 +433,57 @@ void handleForkSyscall(ProcessThread *thread) {
     new_thread->process = process;
     listAdd(&(process->threads), new_thread);
     new_thread->function = 0;
+    new_thread->esp = thread->esp;
 
-    new_thread->esp = malloc(0x1000);
-    sharePage(&process->memory_information, new_thread->esp, new_thread->esp);
-    // copy the stack from the old to the new thread, but then we have to
-    // rewrite all the pushed ebps.
-    memcpy(ADDRESS(PAGE_ID(thread->esp)), new_thread->esp, 0x1000);
-    new_thread->esp += PAGE_OFFSET(thread->esp);
-    uint32_t *stack = new_thread->esp + 0x1C;
-    *stack = PAGE_OFFSET(*stack) + U32(ADDRESS(PAGE_ID(stack)));
-    stack = PTR(*stack);
+    foreach (
+        thread->process->virtual_memory_entries, VirtualMemoryEntry *,
+        original_virtual, {
+            VirtualMemoryEntry *virtual = malloc(sizeof(VirtualMemoryEntry));
+            virtual->virtual = original_virtual->virtual;
+            virtual->process = process;
+            virtual->type = original_virtual->type;
+            virtual->mappings = NULL;
+            virtual->size = original_virtual->size;
 
+            foreach (
+                original_virtual->mappings, MemoryMapping *, original_mapping, {
+                    MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
+                    mapping->virtual = original_mapping->virtual;
+                    if (original_virtual->type == MEM_TYPE_KERNEL) {
+                        // will never change
+                        mapping->physical = original_mapping->physical;
+                    } else {
+                        // TODO: bigger physical entries
+                        PhysicalMemoryEntry *physical =
+                            malloc(sizeof(PhysicalMemoryEntry));
+                        physical->physical = getPhysicalPage();
+                        physical->refcount = 1;
+                        physical->page_count = 1;
+                        void *from =
+                            mapTemporaryA(original_mapping->physical->physical);
+                        void *to = mapTemporaryB(physical->physical);
+                        memcpy(from, to, 4096);
+                        mapping->physical = physical;
+                    }
+                    listAdd(&virtual->mappings, mapping);
+                })
+                ;
+        })
+        ;
+
+    foreach (
+        process->virtual_memory_entries, VirtualMemoryEntry *,
+        virtual_memory_entry, {
+            foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
+                for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
+                    mapPage(&process->memory_information,
+                            mapping->physical->physical + 4096 * i,
+                            mapping->virtual + 4096 * i, true, false);
+                }
+            })
+                ;
+        })
+        ;
     foreach (thread->process->openFileHandles, FileDescriptor *,
              file_descriptor, {
                  FileDescriptor *new = malloc(sizeof(FileDescriptor));
@@ -372,10 +508,10 @@ void handleExecSyscall(ProcessThread *thread) {
         }
     })
         ;
-
-    // TODO: transfer data
+    // TODO: arguments transfer
     // TODO: clear memory
-    char *filename = copy_string_from_process(process, PTR(thread->parameters[0]));
+    char *filename =
+        copy_string_from_process(process, PTR(thread->parameters[0]));
     File *file = thread->process->container->vfs->type->getFile(
         thread->process->container->vfs, filename);
     processLoadELF(thread->process, file);

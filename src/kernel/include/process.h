@@ -22,6 +22,42 @@ typedef struct {
     FileSystem *vfs;
 } Container;
 
+enum MemoryType {
+    MEM_TYPE_PROGRAM_DATA,
+    MEM_TYPE_STACK,
+    MEM_TYPE_HEAP,
+    MEM_TYPE_KERNEL,
+    MEM_TYPE_PAGING,
+    MEM_TYPE_MMAP_FILE,
+};
+
+struct VirtualMemoryEntry;
+struct PhysicalMemoryEntry;
+struct MemoryMapping;
+
+typedef struct MemoryMapping {
+    struct PhysicalMemoryEntry *physical;
+    void *virtual;
+    bool copy_on_write;
+} MemoryMapping;
+
+// this is basically an entry in the page translation table.
+typedef struct VirtualMemoryEntry {
+    ListElement *mappings;
+    // if virtual is null, the page won't be mapped to userspace.
+    // used for example for the page table.
+    void *virtual;
+    uint32_t size;
+    enum MemoryType type;
+    struct Process *process;
+} VirtualMemoryEntry;
+
+typedef struct PhysicalMemoryEntry {
+    void *physical;
+    uint32_t page_count;
+    uint32_t refcount;
+} PhysicalMemoryEntry;
+
 typedef struct Process {
     uint32_t id;
     Container *container;
@@ -29,6 +65,7 @@ typedef struct Process {
     PagingInfo memory_information;
     void *cr3;
     ListElement *openFileHandles;
+    ListElement *virtual_memory_entries;
 } Process;
 
 typedef struct ProcessThread {

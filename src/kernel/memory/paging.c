@@ -193,6 +193,12 @@ void *getPage() {
     return ADDRESS(virtual);
 }
 
+void *getPhysicalPage() {
+    const uint32_t physical = findPage(kernelPhysicalPages);
+    reservePage(kernelPhysicalPages, physical);
+    return ADDRESS(physical);
+}
+
 void *getPagesCount(uint32_t count) {
     uint32_t virtualPageId = findMultiplePages(kernelVirtualPages, count);
     reservePagesCount(kernelVirtualPages, virtualPageId, count);

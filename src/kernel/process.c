@@ -31,8 +31,7 @@ void copy_from_kernel_to_process(uint8_t *read, Process *process,
     for (int i = 0; i < bytes_to_transfer; i++) {
         if ((U32(write) & 0xFFF) == 0) {
             write = mapTemporaryA(getPhysicalAddress(
-                process->memory_information.pageDirectory,
-                threadWrite));
+                process->memory_information.pageDirectory, threadWrite));
         }
         *write = *read;
         write++;
@@ -270,8 +269,9 @@ void handleReadSyscall(ProcessThread *thread) {
                 file_descriptor->file, data, thread->parameters[2],
                 thread->parameters[3]);
         bytes_to_transfer = MIN(bytes_to_transfer, thread->parameters[2]);
-        copy_from_kernel_to_process(
-            data, thread->process, PTR(thread->parameters[1]), bytes_to_transfer);
+        copy_from_kernel_to_process(data, thread->process,
+                                    PTR(thread->parameters[1]),
+                                    bytes_to_transfer);
         free(data);
         thread->resume = true;
         thread->returnValue = bytes_to_transfer;
@@ -349,7 +349,15 @@ void handleForkSyscall(ProcessThread *thread) {
 }
 
 void handleExecSyscall(ProcessThread *thread) {
-    // TODO: remove old threads
+    Process *process = thread->process;
+    foreach (process->threads, ProcessThread *, current_thread, {
+        if (current_thread != thread) {
+            free(current_thread);
+            listRemoveValue(&process->threads, current_thread);
+        }
+    })
+        ;
+
     // TODO: transfer data
     // TODO: clear memory
     void *physical =

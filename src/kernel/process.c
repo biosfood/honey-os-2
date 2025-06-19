@@ -67,6 +67,21 @@ void copy_between_processes(const ProcessThread *readThread, void *from,
     }
 }
 
+void *copy_string_from_process(const Process *process, const void * const from) {
+    uint32_t len = 0;
+    const uint8_t *current_from = from;
+    const uint8_t *read = mapTemporaryA(getPhysicalAddress(process->memory_information.pageDirectory, (void*)current_from));
+    while (*read) {
+        if ((U32(read) & 0xFFF) == 0) {
+            read = mapTemporaryA(getPhysicalAddress(process->memory_information.pageDirectory, (void*)current_from));
+        }
+        len++;
+        read++;
+        current_from++;
+    }
+    return copy_from_process_to_kernel(process, from, len + 1);
+}
+
 void handlePthreadCreateSyscall(ProcessThread *thread) {
     ProcessThread *new_thread = malloc(sizeof(ProcessThread));
     memset(new_thread, 0, sizeof(ProcessThread));
@@ -360,13 +375,8 @@ void handleExecSyscall(ProcessThread *thread) {
 
     // TODO: transfer data
     // TODO: clear memory
-    void *physical =
-        getPhysicalAddress(thread->process->memory_information.pageDirectory,
-                           PTR(thread->parameters[0]));
-    uint32_t len = strlen(mapTemporaryA(physical));
-    char *data = malloc(len);
-    memcpy(mapTemporaryA(physical), data, len + 1);
+    char *filename = copy_string_from_process(process, PTR(thread->parameters[0]));
     File *file = thread->process->container->vfs->type->getFile(
-        thread->process->container->vfs, data);
+        thread->process->container->vfs, filename);
     processLoadELF(thread->process, file);
 }

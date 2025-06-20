@@ -128,6 +128,8 @@ VirtualMemoryEntry *process_map_memory_simple(Process *process,
     VirtualMemoryEntry *virtual = malloc(sizeof(VirtualMemoryEntry));
     virtual->virtual = address;
     virtual->process = process;
+    virtual->size = physical->page_count * 4096;
+    virtual->mappings = NULL;
 
     MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
     mapping->virtual = address;
@@ -137,6 +139,7 @@ VirtualMemoryEntry *process_map_memory_simple(Process *process,
 
     listAdd(&virtual->mappings, mapping);
     listAdd(&process->virtual_memory_entries, virtual);
+    return virtual;
 }
 
 PhysicalMemoryEntry *get_single_page_physical_memory_entry() {
@@ -160,6 +163,7 @@ void build_starting_stack(ProcessThread *thread, void *start_position) {
     virtual->virtual = ADDRESS(
         findMultiplePages(&process->memory_information, 2048));
     virtual->type = MEM_TYPE_STACK;
+    virtual->size = 4096 * 2048;
     reservePagesCount(&process->memory_information, PAGE_ID(virtual->virtual),
                       2048);
 
@@ -401,27 +405,10 @@ Process *newProcess(Container *container) {
     return process;
 }
 
-void cloneMemoryInformation(PagingInfo *from, PagingInfo *to) {
-    memcpy(from, to, sizeof(PagingInfo));
-    to->pageDirectory = malloc(0x1000);
-    memcpy(from->pageDirectory, to->pageDirectory, 0x1000);
-
-    for (uint32_t i = 0; i < 0x1000 / 4; i++) {
-        if (!from->pageDirectory[i].present) {
-            continue;
-        }
-        PageTableEntry *entry = malloc(0x1000);
-        memcpy(mapTemporaryA(ADDRESS(from->pageDirectory[i].pageTableID)),
-               entry, 0x1000);
-        to->pageDirectory[i].pageTableID =
-            PAGE_ID(getPhysicalAddressKernel(entry));
-    }
-}
-
 void handleForkSyscall(ProcessThread *thread) {
     Process *process = newProcess(thread->process->container);
-    cloneMemoryInformation(&thread->process->memory_information,
-                           &process->memory_information);
+    memset(&process->memory_information, 0, sizeof(PagingInfo));
+    process->memory_information.pageDirectory = malloc(0x1000);
     process->cr3 =
         getPhysicalAddressKernel(process->memory_information.pageDirectory);
     process->threads = NULL;
@@ -444,29 +431,21 @@ void handleForkSyscall(ProcessThread *thread) {
             virtual->type = original_virtual->type;
             virtual->mappings = NULL;
             virtual->size = original_virtual->size;
+            listAdd(&process->virtual_memory_entries, virtual);
 
-            foreach (
-                original_virtual->mappings, MemoryMapping *, original_mapping, {
-                    MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
-                    mapping->virtual = original_mapping->virtual;
-                    if (original_virtual->type == MEM_TYPE_KERNEL) {
-                        // will never change
-                        mapping->physical = original_mapping->physical;
-                    } else {
-                        // TODO: bigger physical entries
-                        PhysicalMemoryEntry *physical =
-                            malloc(sizeof(PhysicalMemoryEntry));
-                        physical->physical = getPhysicalPage();
-                        physical->refcount = 1;
-                        physical->page_count = 1;
-                        void *from =
-                            mapTemporaryA(original_mapping->physical->physical);
-                        void *to = mapTemporaryB(physical->physical);
-                        memcpy(from, to, 4096);
-                        mapping->physical = physical;
-                    }
-                    listAdd(&virtual->mappings, mapping);
-                })
+            foreach (original_virtual->mappings, MemoryMapping *,
+                     original_mapping, {
+                         MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
+                         mapping->virtual = original_mapping->virtual;
+                         mapping->physical = original_mapping->physical;
+                         original_mapping->physical->refcount++;
+                         if (original_virtual->type == MEM_TYPE_KERNEL) {
+                             // will never change.
+                         } else {
+                             mapping->copy_on_write = true;
+                         }
+                         listAdd(&virtual->mappings, mapping);
+                     })
                 ;
         })
         ;
@@ -476,14 +455,16 @@ void handleForkSyscall(ProcessThread *thread) {
         virtual_memory_entry, {
             foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
                 for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
-                    mapPage(&process->memory_information,
-                            mapping->physical->physical + 4096 * i,
-                            mapping->virtual + 4096 * i, true, false);
+                    map(&process->memory_information,
+                        mapping->physical->physical + 4096 * i,
+                        mapping->virtual + 4096 * i, true)
+                        ->writable = false;
                 }
             })
                 ;
         })
         ;
+
     foreach (thread->process->openFileHandles, FileDescriptor *,
              file_descriptor, {
                  FileDescriptor *new = malloc(sizeof(FileDescriptor));

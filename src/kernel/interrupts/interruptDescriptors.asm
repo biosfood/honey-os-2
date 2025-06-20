@@ -21,6 +21,8 @@ exceptionAbort:
   je $
   mov ecx, 0x500000
   mov cr3, ecx
+  mov eax, cr2
+  push eax
   push ebp
   call onException
   mov eax, [temporaryESP]

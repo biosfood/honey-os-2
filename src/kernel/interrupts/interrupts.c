@@ -1,4 +1,7 @@
 #include "interrupts.h"
+
+#include "process.h"
+
 #include <interrupts.h>
 #include <memory.h>
 #include <service.h>
@@ -32,8 +35,77 @@ void onInterrupt(void *cr3, uint32_t d, uint32_t c, uint32_t b, uint32_t a,
     // do stuff
 }
 
-void onException(void *ebp, void *cr3, uint32_t d, uint32_t c, uint32_t b,
-                 uint32_t a, uint32_t intNo, uint32_t errorCode, uint32_t eip) {
+extern ProcessThread *current_thread;
+
+void onException(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
+                 uint32_t b, uint32_t a, uint32_t intNo, uint32_t errorCode,
+                 uint32_t eip) {
+    if (intNo == 0x0E && errorCode == 7) {
+        // page-protection violation, write access and in usermode
+        // we are probaly dealing with a copy-on-write page here.
+        PhysicalMemoryEntry *physical = NULL;
+        MemoryMapping *mapping = NULL;
+        VirtualMemoryEntry *virtual = NULL;
+        foreach (
+            current_thread->process->virtual_memory_entries,
+            VirtualMemoryEntry *, current_virtual, {
+                if (current_virtual->virtual > cr2 ||
+                    current_virtual->virtual + current_virtual->size <= cr2) {
+                    continue;
+                }
+                foreach (
+                    current_virtual->mappings, MemoryMapping *, current_mapping,
+                    {
+                        if (current_mapping->virtual > cr2 ||
+                            current_mapping->virtual +
+                                    4096 *
+                                        current_mapping->physical->page_count <=
+                                cr2) {
+                            continue;
+                        }
+                        physical = current_mapping->physical;
+                        mapping = current_mapping;
+                        virtual = current_virtual;
+                        break;
+                    })
+                    ;
+            })
+            ;
+        while (!physical || !mapping || !virtual)
+            ;
+        if (physical->refcount == 1) {
+            // only one reference, this is ours now!
+            VirtualAddress *address = (void *)&virtual;
+            PageDirectoryEntry *directory =
+                current_thread->process->memory_information.pageDirectory;
+            void *pageTablePhysical =
+                ADDRESS(directory[address->pageDirectoryIndex].pageTableID);
+            PageTableEntry *pageTable = mapTemporaryA(pageTablePhysical);
+            PageTableEntry *entry = &pageTable[address->pageTableIndex];
+            mapping->copy_on_write = false;
+            entry->writable = 1;
+        } else {
+            PhysicalMemoryEntry *new_physical =
+                malloc(sizeof(PhysicalMemoryEntry));
+            new_physical->physical = getPhysicalPages(physical->page_count);
+            new_physical->page_count = physical->page_count;
+            mapping->physical = new_physical;
+            new_physical->refcount = 1;
+            for (uint32_t i = 0; i < physical->page_count; i++) {
+                memcpy(mapTemporaryA(physical->physical + 4096 * i),
+                       mapTemporaryB(new_physical->physical + 4096 * i), 4096);
+                PageTableEntry *entry =
+                    map(&current_thread->process->memory_information,
+                        new_physical->physical + 4096 * i,
+                        mapping->virtual + 4096 * i, true);
+                entry->writable = 1;
+                entry->available = 1;
+            }
+        }
+        current_thread->resume = true;
+        current_thread->function = 0;
+        return;
+    }
 
     while (1)
         ;

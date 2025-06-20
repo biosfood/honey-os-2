@@ -10,6 +10,12 @@
 #define PAGE_OFFSET(address) (U32(address) & 0xFFF)
 
 typedef struct {
+    uint32_t pageOffset : 12;
+    uint32_t pageTableIndex : 10;
+    uint32_t pageDirectoryIndex : 10;
+} __attribute__((packed)) VirtualAddress;
+
+typedef struct {
     uint32_t present : 1;
     uint32_t writable : 1;
     uint32_t belongsToUserProcess : 1;
@@ -54,6 +60,7 @@ extern void *kernelMapPhysical(void *address);
 extern void *kernelMapPhysicalCount(void *address, uint32_t size);
 extern void *getPage();
 extern void *getPhysicalPage();
+extern void *getPhysicalPages(uint32_t count);
 extern void *sharePage(PagingInfo *destination, void *sourceAddress,
                        void *destinationAddress);
 extern void freePage(void *pageAddress);
@@ -77,6 +84,7 @@ extern void reservePagesCount(PagingInfo *info, uint32_t startPageId,
                               uint32_t count);
 extern void mapPage(PagingInfo *info, void *physical, void *virtual,
                     bool userPage, bool isVolatile);
+extern PageTableEntry *map(PagingInfo *info, void *physical, void *virtual, bool user);
 extern void freePageFrom(PagingInfo *info, void *address);
 
 #endif

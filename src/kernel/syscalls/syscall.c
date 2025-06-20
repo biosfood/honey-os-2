@@ -136,5 +136,9 @@ void processThread(ProcessThread *thread) {
         if (thread->resume) {
             listAdd(&threads_to_process, thread);
         }
+    } else if (thread && !thread->function) {
+        if (thread->resume) {
+            listAdd(&threads_to_process, thread);
+        }
     }
 }

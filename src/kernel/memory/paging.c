@@ -183,6 +183,33 @@ void mapPage(PagingInfo *info, void *physical, void *virtual, bool userPage,
     invalidatePage(PAGE_ID(virtual));
 }
 
+PageTableEntry *map(PagingInfo *info, void *physical, void *virtual,
+                    bool user) {
+    VirtualAddress *address = (void *)&virtual;
+    PageDirectoryEntry *directory = info->pageDirectory;
+    if (!directory[address->pageDirectoryIndex].present) {
+        uint32_t newPageTable = findPage(kernelPhysicalPages);
+        reservePage(kernelPhysicalPages, newPageTable);
+        void *temporary = mapTemporaryA(ADDRESS(newPageTable));
+        memset(temporary, 0, 0x1000);
+        directory[address->pageDirectoryIndex].pageTableID = newPageTable;
+        directory[address->pageDirectoryIndex].present = 1;
+        directory[address->pageDirectoryIndex].writable = 1;
+        directory[address->pageDirectoryIndex].belongsToUserProcess |= user;
+    }
+    void *pageTablePhysical =
+        ADDRESS(directory[address->pageDirectoryIndex].pageTableID);
+    void *temporary = mapTemporaryA(pageTablePhysical);
+    PageTableEntry *pageTable = temporary;
+    pageTable[address->pageTableIndex].targetAddress = PAGE_ID(physical);
+    pageTable[address->pageTableIndex].present = true;
+    pageTable[address->pageTableIndex].writable = true;
+    pageTable[address->pageTableIndex].isVolatile = false;
+    pageTable[address->pageTableIndex].belongsToUserProcess = user;
+    invalidatePage(PAGE_ID(virtual));
+    return &pageTable[address->pageTableIndex];
+}
+
 void *getPage() {
     uint32_t physical = findPage(kernelPhysicalPages);
     reservePage(kernelPhysicalPages, physical);
@@ -196,6 +223,12 @@ void *getPage() {
 void *getPhysicalPage() {
     const uint32_t physical = findPage(kernelPhysicalPages);
     reservePage(kernelPhysicalPages, physical);
+    return ADDRESS(physical);
+}
+
+void *getPhysicalPages(uint32_t count) {
+    const uint32_t physical = findMultiplePages(kernelPhysicalPages, count);
+    reservePagesCount(kernelPhysicalPages, physical, count);
     return ADDRESS(physical);
 }
 
@@ -261,7 +294,8 @@ void giveUpPage(PagingInfo *info, uint32_t pageId) {
     do {
         {
             // mark physical page as free
-            void *physical = getPhysicalAddress(info->pageDirectory, ADDRESS(pageId));
+            void *physical =
+                getPhysicalAddress(info->pageDirectory, ADDRESS(pageId));
             uint32_t physicalId = PAGE_ID(physical);
             uint32_t coarse = physicalId / 32;
             uint32_t fine = physicalId % 32;
@@ -277,7 +311,6 @@ void giveUpPage(PagingInfo *info, uint32_t pageId) {
         unmapSinglePageFrom(info, ADDRESS(pageId));
         pageId++;
     } while (info->isPageConnectedToNext[coarse] & fineBit);
-
 }
 
 void unmapPage(void *pageAddress) {

@@ -240,9 +240,10 @@ ProcessThread *processLoadELF(Process *process, File *file) {
         virtual_memory_entry, {
             foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
                 for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
-                    mapPage(&process->memory_information,
-                            mapping->physical->physical + 4096 * i,
-                            mapping->virtual + 4096 * i, true, false);
+                    map(&process->memory_information,
+                        mapping->physical->physical + 4096 * i,
+                        mapping->virtual + 4096 * i, true)
+                        ->writable = true;
                 }
             })
                 ;
@@ -439,11 +440,8 @@ void handleForkSyscall(ProcessThread *thread) {
                          mapping->virtual = original_mapping->virtual;
                          mapping->physical = original_mapping->physical;
                          original_mapping->physical->refcount++;
-                         if (original_virtual->type == MEM_TYPE_KERNEL) {
-                             // will never change.
-                         } else {
-                             mapping->copy_on_write = true;
-                         }
+                         mapping->copy_on_write = true;
+                         original_mapping->copy_on_write = true;
                          listAdd(&virtual->mappings, mapping);
                      })
                 ;
@@ -456,6 +454,21 @@ void handleForkSyscall(ProcessThread *thread) {
             foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
                 for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
                     map(&process->memory_information,
+                        mapping->physical->physical + 4096 * i,
+                        mapping->virtual + 4096 * i, true)
+                        ->writable = false;
+                }
+            })
+                ;
+        })
+        ;
+    // make old data no longer writable for the original process as well.
+    foreach (
+        thread->process->virtual_memory_entries, VirtualMemoryEntry *,
+        virtual_memory_entry, {
+            foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
+                for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
+                    map(&thread->process->memory_information,
                         mapping->physical->physical + 4096 * i,
                         mapping->virtual + 4096 * i, true)
                         ->writable = false;

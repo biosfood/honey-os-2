@@ -36,10 +36,11 @@ void onInterrupt(void *cr3, uint32_t d, uint32_t c, uint32_t b, uint32_t a,
 }
 
 extern ProcessThread *current_thread;
+extern uint32_t interruptReturn;
 
 void onException(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
                  uint32_t b, uint32_t a, uint32_t intNo, uint32_t errorCode,
-                 uint32_t eip) {
+                 uint32_t eip, uint32_t cs, uint32_t eflags, uint32_t esp) {
     if (intNo == 0x0E && errorCode == 7) {
         // page-protection violation, write access and in usermode
         // we are probaly dealing with a copy-on-write page here.
@@ -74,17 +75,17 @@ void onException(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
         while (!physical || !mapping || !virtual)
             ;
         if (physical->refcount == 1) {
-            // only one reference, this is ours now!
-            VirtualAddress *address = (void *)&virtual;
-            PageDirectoryEntry *directory =
-                current_thread->process->memory_information.pageDirectory;
-            void *pageTablePhysical =
-                ADDRESS(directory[address->pageDirectoryIndex].pageTableID);
-            PageTableEntry *pageTable = mapTemporaryA(pageTablePhysical);
-            PageTableEntry *entry = &pageTable[address->pageTableIndex];
+            for (uint32_t i = 0; i < physical->page_count; i++) {
+                PageTableEntry *entry =
+                    map(&current_thread->process->memory_information,
+                        physical->physical + 4096 * i,
+                        mapping->virtual + 4096 * i, true);
+                entry->writable = 1;
+                entry->available = 1;
+            }
             mapping->copy_on_write = false;
-            entry->writable = 1;
         } else {
+            physical->refcount--;
             PhysicalMemoryEntry *new_physical =
                 malloc(sizeof(PhysicalMemoryEntry));
             new_physical->physical = getPhysicalPages(physical->page_count);
@@ -102,24 +103,27 @@ void onException(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
                 entry->available = 1;
             }
         }
-        current_thread->resume = true;
-        current_thread->function = 0;
-        return;
+        goto resume;
     }
 
     while (1)
         ;
-    // foreach (interruptSubscriptions[0], ServiceFunction *, provider, {
-    //     Service *service = (Service *)current_thread->service;
-    //     scheduleFunction(
-    //         provider, current_thread->respondingTo, intNo, errorCode, eip,
-    //         U32(getPhysicalAddress(
-    //             ((Service
-    //             *)current_thread->service)->pagingInfo.pageDirectory, ebp)),
-    //         service->nameHash, getServiceId(service));
-    // })
-    //     ;
-    // free(current_thread);
+
+    resume:
+    // TODO: make sure there actually is enough space on the stack here....
+    uint32_t newStack[] = {
+        U32(&interruptReturn),
+        U32(ebp),
+        d,
+        c,
+        b,
+        a,
+        eip,
+    };
+    current_thread->esp = PTR(esp) - sizeof(newStack);
+    current_thread->function = 0;
+    current_thread->resume = true;
+    memcpy(newStack, mapTemporaryA(getPhysicalAddress(current_thread->process->memory_information.pageDirectory, current_thread->esp)), sizeof(newStack));
 }
 
 extern void *interruptStack;

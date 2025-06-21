@@ -37,12 +37,24 @@ void handleMmapSyscall(ProcessThread *thread) {
         }
         reservePagesCount(&thread->process->memory_information, virtualStart,
                           pagesCount);
+        VirtualMemoryEntry *virtual_memory_entry = malloc(sizeof(VirtualMemoryEntry
+            ));
+        virtual_memory_entry->virtual = ADDRESS(virtualStart);
+        virtual_memory_entry->process = thread->process;
+        virtual_memory_entry->type = MEM_TYPE_HEAP;
+        virtual_memory_entry->mappings = NULL;
+        virtual_memory_entry->size = pagesCount * 4096;
+        listAdd(&thread->process->virtual_memory_entries, virtual_memory_entry);
 
         for (uint32_t i = 0; i < pagesCount; i++) {
-            uint32_t physicalPage = findPage(kernelPhysicalPages);
-            reservePagesCount(kernelPhysicalPages, physicalPage, 1);
-            mapPage(&thread->process->memory_information, ADDRESS(physicalPage),
-                    ADDRESS(virtualStart + i), true, false);
+            PhysicalMemoryEntry *physical = get_single_page_physical_memory_entry();
+            MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
+            mapping->physical = physical;
+            physical->refcount++;
+            mapping->virtual = ADDRESS(virtualStart + i);
+            mapping->copy_on_write = false;
+            map(&thread->process->memory_information, physical->physical, mapping->virtual, true)->writable = true;
+            listAdd(&virtual_memory_entry->mappings, mapping);
         }
         thread->returnValue = U32(ADDRESS(virtualStart));
         thread->resume = true;

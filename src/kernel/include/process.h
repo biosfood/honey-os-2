@@ -5,6 +5,11 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+struct VirtualMemoryEntry;
+struct PhysicalMemoryEntry;
+struct MemoryMapping;
+
+
 #include <memory.h>
 #include <stdint.h>
 #include <util.h>
@@ -30,10 +35,6 @@ enum MemoryType {
     MEM_TYPE_PAGING,
     MEM_TYPE_MMAP_FILE,
 };
-
-struct VirtualMemoryEntry;
-struct PhysicalMemoryEntry;
-struct MemoryMapping;
 
 typedef struct MemoryMapping {
     struct PhysicalMemoryEntry *physical;

@@ -86,5 +86,7 @@ extern void mapPage(PagingInfo *info, void *physical, void *virtual,
                     bool userPage, bool isVolatile);
 extern PageTableEntry *map(PagingInfo *info, void *physical, void *virtual, bool user);
 extern void freePageFrom(PagingInfo *info, void *address);
+struct PhysicalMemoryEntry;
+extern struct PhysicalMemoryEntry *get_single_page_physical_memory_entry();
 
 #endif

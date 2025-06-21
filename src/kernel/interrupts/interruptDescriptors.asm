@@ -4,15 +4,17 @@ extern onInterrupt
 extern temporaryESP
 extern handleSyscallEnd
 extern onException
+global interruptReturn
 
 global interruptStack
 interruptStack: resb 1024
 
 interruptReturn:
-  pop eax
-  pop ebx
-  pop ecx
+  pop ebp
   pop edx
+  pop ecx
+  pop ebx
+  pop eax
   ret
 
 exceptionAbort:
@@ -21,8 +23,6 @@ exceptionAbort:
   je $
   mov ecx, 0x500000
   mov cr3, ecx
-  mov eax, cr2
-  push eax
   push ebp
   call onException
   mov eax, [temporaryESP]
@@ -38,8 +38,10 @@ handleInterrupt:
   push edx
   mov ecx, cr3
   push ecx
+  mov ecx, cr2
+  push ecx
 .checkException:
-  mov eax, [esp+20]
+  mov eax, [esp+24]
   cmp eax, 31
   jng exceptionAbort
 .goToKernelPages:

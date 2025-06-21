@@ -88,5 +88,6 @@ extern PageTableEntry *map(PagingInfo *info, void *physical, void *virtual, bool
 extern void freePageFrom(PagingInfo *info, void *address);
 struct PhysicalMemoryEntry;
 extern struct PhysicalMemoryEntry *get_single_page_physical_memory_entry();
+extern void freePhysical(void *address, uint32_t count);
 
 #endif

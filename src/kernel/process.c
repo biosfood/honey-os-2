@@ -231,7 +231,7 @@ ProcessThread *processLoadELF(Process *process, File *file) {
     memset(thread, 0, sizeof(ProcessThread));
     thread->id = id_counter++;
     thread->process = process;
-    listAdd(&(process->threads), thread);
+    listAdd(&process->threads, thread);
     thread->function = 0;
     build_starting_stack(thread, PTR(header->entryPosition));
 
@@ -495,18 +495,31 @@ void handleForkSyscall(ProcessThread *thread) {
 
 void handleExecSyscall(ProcessThread *thread) {
     Process *process = thread->process;
-    foreach (process->threads, ProcessThread *, current_thread, {
-        if (current_thread != thread) {
-            free(current_thread);
-            listRemoveValue(&process->threads, current_thread);
-        }
-    })
-        ;
     // TODO: arguments transfer
-    // TODO: clear memory
     char *filename =
         copy_string_from_process(process, PTR(thread->parameters[0]));
-    File *file = thread->process->container->vfs->type->getFile(
-        thread->process->container->vfs, filename);
-    processLoadELF(thread->process, file);
+    listClear(process->threads);
+    process->threads = NULL;
+
+    foreach (process->virtual_memory_entries, VirtualMemoryEntry *, virtual, {
+        foreach (virtual->mappings, MemoryMapping *, mapping, {
+            unmapPageFrom(&process->memory_information,
+                          mapping->physical->physical);
+            mapping->physical->refcount--;
+            if (mapping->physical->refcount == 0) {
+                // noone is using this page anymore, so we can free it up!
+                freePhysical(mapping->physical->physical,
+                             mapping->physical->page_count);
+                free(mapping->physical);
+            }
+        })
+            ;
+        listClear(virtual->mappings);
+    })
+        ;
+    listClear(process->virtual_memory_entries);
+    process->virtual_memory_entries = NULL;
+    File *file = process->container->vfs->type->getFile(process->container->vfs,
+                                                        filename);
+    processLoadELF(process, file);
 }

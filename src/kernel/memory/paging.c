@@ -289,6 +289,18 @@ void unmapPageFrom(PagingInfo *info, void *address) {
     } while (info->isPageConnectedToNext[coarse] & fineBit);
 }
 
+void freePhysical(void *address, uint32_t count) {
+    uint32_t pageId = PAGE_ID(address);
+    for (uint32_t i = 0; i < count; i++) {
+        // mark physical page as free
+        uint32_t coarse = pageId / 32;
+        uint32_t fine = pageId % 32;
+        uint32_t fineBit = 1 << fine;
+        markPageFree(kernelPhysicalPages, coarse, fine, fineBit);
+        pageId++;
+    }
+}
+
 void giveUpPage(PagingInfo *info, uint32_t pageId) {
     uint32_t coarse, fine, fineBit;
     do {

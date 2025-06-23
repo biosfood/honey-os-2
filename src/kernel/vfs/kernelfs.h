@@ -15,9 +15,7 @@ typedef struct {
 typedef struct {
     FileSystem;
     KernelFsFile rootDir;
-    KernelFsFile port;
     KernelFsFile mem;
-    KernelFsFile cpuid;
     KernelFsFile null;
 } KernelFsFileSystem;
 

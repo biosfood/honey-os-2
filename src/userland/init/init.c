@@ -1,14 +1,11 @@
 #include <dirent.h>
 #include <fnctl.h>
 #include <pthread.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-int portFd;
 
 extern void initPCI();
 
@@ -16,7 +13,6 @@ int main() {
     struct stat stat;
     mkdir("/dev/", 0);
     mkfifo("/dev/serout", 0);
-    portFd = open("/kernel/port", 0);
 
     // reassign STDOUT
     close(STDOUT_FILENO);
@@ -34,8 +30,6 @@ int main() {
     close(messageFile);
     printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
     free(cpuidMessage);
-
-    printf("Port fd: %i\n", portFd);
 
     initPCI();
 

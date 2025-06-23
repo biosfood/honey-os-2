@@ -17,9 +17,6 @@ File *kernelFsGet(KernelFsFileSystem *file_system, char *path) {
     if (stringEquals(path, "/mem")) {
         return (void *)&file_system->mem;
     }
-    if (stringEquals(path, "/port")) {
-        return (void *)&file_system->port;
-    }
     if (stringEquals(path, "/null")) {
         return (void *)&file_system->null;
     }
@@ -46,43 +43,6 @@ FileSystemType kernelFsType = {
     .write = kernelFsWrite,
     .read = kernelFsRead,
 };
-
-uint32_t port_read(KernelFsFile *file, void *data, uint32_t size,
-                   uint32_t offset) {
-    uint32_t result;
-    switch (size) {
-    case 1:
-        asm("in %%dx, %%al" : "=a"(result) : "d"(offset));
-        break;
-    case 2:
-        asm("in %%dx, %%ax" : "=a"(result) : "d"(offset));
-        break;
-    case 4:
-        asm("in %%dx, %%eax" : "=a"(result) : "d"(offset));
-        break;
-    default:
-        return 0;
-    }
-    memcpy(&result, data, size);
-}
-
-uint32_t port_write(KernelFsFile *file, void *data, uint32_t size,
-                    uint32_t offset) {
-    switch (size) {
-    case 1:
-        asm("out %0, %1" : : "a"(*(uint8_t *)data), "Nd"(offset));
-        break;
-    case 2:
-        asm("out %0, %1" : : "a"(*(uint16_t *)data), "Nd"(offset));
-        break;
-    case 4:
-        asm("out %0, %1" : : "a"(*(uint32_t *)data), "Nd"(offset));
-        break;
-    default:
-        return 0;
-    }
-    return size;
-}
 
 uint32_t null_write(KernelFsFile *file, void *data, uint32_t size,
                     uint32_t offset) {
@@ -121,17 +81,6 @@ KernelFsFileSystem kernel_fs_file_system = {
             .write = NULL,
             .livesInMemory = true,
         },
-    .port =
-        {
-            .file_system = (void *)&kernel_fs_file_system,
-            .size = 0,
-            .type = FILE_TYPE_FILE,
-            .data = NULL,
-            .data_ = NULL,
-            .read = port_read,
-            .write = port_write,
-            .livesInMemory = true,
-        },
     .null = {
         .file_system = (void *)&kernel_fs_file_system,
         .size = 0,
@@ -141,6 +90,7 @@ KernelFsFileSystem kernel_fs_file_system = {
         .read = null_read,
         .write = null_write,
         .livesInMemory = true,
-    }};
+    },
+};
 
 FileSystem *createKernelFs() { return (void *)&kernel_fs_file_system; }

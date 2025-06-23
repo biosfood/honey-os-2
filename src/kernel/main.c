@@ -51,7 +51,7 @@ Container *newContainer(FileSystem *fs) {
 }
 
 bool shutdown = false;
-extern FileSystem cpuid_file_system;
+extern FileSystem cpuid_file_system, port_file_system;
 
 void loadAndScheduleSystemServices(void *multibootInfo) {
     FileSystem *fs = create_mount_list_file_system();
@@ -61,6 +61,7 @@ void loadAndScheduleSystemServices(void *multibootInfo) {
     FileSystem *kernelFs = createKernelFs();
     mount(fs, kernelFs, "/kernel/", "/");
     mount(fs, &cpuid_file_system, "/dev/cpuid/", "/");
+    mount(fs, &port_file_system, "/dev/port/", "/");
 
     void *address = kernelMapPhysicalCount(multibootInfo, 4);
     uint32_t initrdSize;

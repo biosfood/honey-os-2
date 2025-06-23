@@ -25,18 +25,6 @@
 #define READ8(offset) (READ(offset) & 0xFF)
 #define VENDOR_ID() (pciConfigRead(bus, device, function, 0) & 0xFFFF)
 
-extern int portFd;
-
-#define ioOut(port, data, len)                                                 \
-    {                                                                          \
-        buf = data;                                                            \
-        pwrite(portFd, &buf, len, port);                                       \
-    }
-#define ioIn(port, len)                                                        \
-    ({                                                                         \
-        pread(portFd, &buf, len, port);                                        \
-        buf;                                                                   \
-    })
 #define U32(x) ((uint32_t)(uintptr_t)(x))
 
 char *classNames[] = {
@@ -69,23 +57,24 @@ uint32_t deviceCount = 0;
 ListElement *pciDevices = NULL;
 bool initialized = false;
 
+int config_address_fd, config_data_fd;
+
 uint32_t pciConfigRead(uint32_t bus, uint32_t device, uint32_t function,
                        uint8_t offset) {
-    uint32_t buf;
     uint32_t address = ((bus << 16) | (device << 11) | (function << 8) |
                         (offset & 0xFC) | 0x80000000);
-    ioOut(0xCF8, address, 4);
-    uint32_t result = ioIn(0xCFC, 4) >> ((offset % 4) * 8);
-    return result;
+    write(config_address_fd, &address, 4);
+    uint32_t result;
+    read(config_data_fd, &result, 4);
+    return result >> ((offset % 4) * 8);
 }
 
 void pciConfigWriteByte(uint32_t bus, uint32_t device, uint32_t function,
                         uint8_t offset, uint32_t data) {
-    uint32_t buf;
     uint32_t address =
         (bus << 16) | (device << 11) | (function << 8) | offset | 0x80000000;
-    ioOut(0xCF8, address, 4);
-    ioOut(0xCFC, data, 2);
+    write(config_address_fd, &address, 4);
+    write(config_data_fd, &data, 1);
 }
 
 void pciConfigWriteWord(uint8_t bus, uint8_t device, uint8_t function,
@@ -174,6 +163,8 @@ void initializePci() {
 }
 
 void initPCI() {
+    config_address_fd = open("/dev/port/3320", 0);
+    config_data_fd = open("/dev/port/3324", 0);
     printf("indexing PIC bus... ");
     mkdir("/dev/pci", 0);
     initializePci();

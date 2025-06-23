@@ -1,5 +1,4 @@
 #include "service.h"
-#include "elf.h"
 #include <memory.h>
 #include <process.h>
 #include <service.h>

@@ -9,7 +9,6 @@ struct VirtualMemoryEntry;
 struct PhysicalMemoryEntry;
 struct MemoryMapping;
 
-
 #include <memory.h>
 #include <stdint.h>
 #include <util.h>
@@ -92,5 +91,31 @@ extern void *runEnd;
 extern void processThread(ProcessThread *thread);
 extern ProcessThread *processLoadELF(Process *process, File *elfStart);
 extern Process *newProcess(Container *container);
+
+extern char *copy_string_from_process(const Process *process,
+                                      const void *const from);
+extern void *copy_from_process_to_kernel(const Process *process,
+                                         void *threadRead,
+                                         const uint32_t bytes_to_transfer);
+extern void copy_from_kernel_to_process(uint8_t *read, Process *process,
+                                        uint8_t *threadWrite,
+                                        uint32_t bytes_to_transfer);
+extern void copy_between_processes(const ProcessThread *readThread, void *from,
+                                   const ProcessThread *writeThread, void *to,
+                                   const uint32_t bytes_to_transfer);
+// memory operations
+extern VirtualMemoryEntry *
+process_map_memory_simple(Process *process, PhysicalMemoryEntry *physical,
+                          void *address);
+extern PhysicalMemoryEntry *get_single_page_physical_memory_entry();
+#define MAP(v, physical_mapping, address)                                      \
+    {                                                                          \
+        MemoryMapping *mapping = malloc(sizeof(MemoryMapping));                \
+        mapping->virtual = address;                                            \
+        mapping->physical = physical_mapping;                                  \
+        physical_mapping->refcount++;                                          \
+        mapping->copy_on_write = false;                                        \
+        listAdd(&v->mappings, mapping);                                        \
+    }
 
 #endif // PROCESS_H

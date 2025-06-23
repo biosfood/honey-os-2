@@ -1,4 +1,3 @@
-#include "elf.h"
 #include <service.h>
 #include <stddef.h>
 #include <stdint.h>

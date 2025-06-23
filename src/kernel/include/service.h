@@ -1,7 +1,7 @@
 #ifndef SERVICE_H
 #define SERVICE_H
 
-#include "../service/elf.h"
+#include "../process/elf.h"
 #include <memory.h>
 #include <syscall.h>
 #include <util.h>

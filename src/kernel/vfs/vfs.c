@@ -172,22 +172,7 @@ void handleStatSyscall(ProcessThread *thread) {
     file_descriptor->file->file_system->type->getattr(
         file_descriptor->file, &buf
     );
-
-    char *threadWrite = PTR(thread->parameters[1]);
-    char *write = mapTemporaryA(getPhysicalAddress(
-        thread->process->memory_information.pageDirectory, threadWrite));
-    char *read = (void*)&buf;
-    for (int i = 0; i < sizeof(struct stat); i++) {
-        if ((U32(write) & 0xFFF) == 0) {
-            write = mapTemporaryA(getPhysicalAddress(
-                thread->process->memory_information.pageDirectory,
-                threadWrite));
-        }
-        *write = *read;
-        write++;
-        read++;
-        threadWrite++;
-    }
+    copy_from_kernel_to_process(&buf, thread->process, PTR(thread->parameters[1]), sizeof(struct buf));
     thread->resume = true;
     thread->returnValue = 0;
 }

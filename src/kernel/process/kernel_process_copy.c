@@ -20,8 +20,8 @@ void *copy_from_process_to_kernel(const Process *process, void *threadRead,
     return result;
 }
 
-void copy_from_kernel_to_process(uint8_t *read, Process *process,
-                                 uint8_t *threadWrite,
+void copy_from_kernel_to_process(void *read, Process *process,
+                                 void *threadWrite,
                                  uint32_t bytes_to_transfer) {
     uint8_t *write = mapTemporaryA(getPhysicalAddress(
         process->memory_information.pageDirectory, threadWrite));
@@ -30,7 +30,7 @@ void copy_from_kernel_to_process(uint8_t *read, Process *process,
             write = mapTemporaryA(getPhysicalAddress(
                 process->memory_information.pageDirectory, threadWrite));
         }
-        *write = *read;
+        *write = *(uint8_t*)read;
         write++;
         read++;
         threadWrite++;

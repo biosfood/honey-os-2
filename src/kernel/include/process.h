@@ -97,8 +97,8 @@ extern char *copy_string_from_process(const Process *process,
 extern void *copy_from_process_to_kernel(const Process *process,
                                          void *threadRead,
                                          const uint32_t bytes_to_transfer);
-extern void copy_from_kernel_to_process(uint8_t *read, Process *process,
-                                        uint8_t *threadWrite,
+extern void copy_from_kernel_to_process(void *read, Process *process,
+                                        void *threadWrite,
                                         uint32_t bytes_to_transfer);
 extern void copy_between_processes(const ProcessThread *readThread, void *from,
                                    const ProcessThread *writeThread, void *to,

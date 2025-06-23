@@ -20,9 +20,6 @@ File *kernelFsGet(KernelFsFileSystem *file_system, char *path) {
     if (stringEquals(path, "/port")) {
         return (void *)&file_system->port;
     }
-    if (stringEquals(path, "/cpuid")) {
-        return (void *)&file_system->cpuid;
-    }
     if (stringEquals(path, "/null")) {
         return (void *)&file_system->null;
     }
@@ -49,17 +46,6 @@ FileSystemType kernelFsType = {
     .write = kernelFsWrite,
     .read = kernelFsRead,
 };
-
-uint32_t cpuidRead(KernelFsFile *file, void *data, uint32_t size,
-                   uint32_t offset) {
-    uint32_t output[4];
-    asm volatile("cpuid"
-                 : "=a"(output[0]), "=b"(output[1]), "=c"(output[2]),
-                   "=d"(output[3])
-                 : "a"(offset));
-    memcpy(output, data, MIN(size, 16));
-    return MIN(size, 16);
-}
 
 uint32_t port_read(KernelFsFile *file, void *data, uint32_t size,
                    uint32_t offset) {
@@ -132,17 +118,6 @@ KernelFsFileSystem kernel_fs_file_system = {
             .data = NULL,
             .data_ = NULL,
             .read = NULL,
-            .write = NULL,
-            .livesInMemory = true,
-        },
-    .cpuid =
-        {
-            .file_system = (void *)&kernel_fs_file_system,
-            .size = 0,
-            .type = FILE_TYPE_FILE,
-            .data = NULL,
-            .data_ = NULL,
-            .read = cpuidRead,
             .write = NULL,
             .livesInMemory = true,
         },

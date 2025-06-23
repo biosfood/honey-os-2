@@ -28,12 +28,10 @@ int main() {
     }
 
     printf("Hello World!\n");
-    const int messageFile = open("/kernel/cpuid", 0);
+    const int messageFile = open("/dev/cpuid/0", 0);
     uint32_t *cpuidMessage = malloc(4 * 4);
     read(messageFile, cpuidMessage, 16);
-    cpuidMessage[0] = cpuidMessage[1];
-    cpuidMessage[1] = cpuidMessage[3];
-    cpuidMessage[3] = 0;
+    close(messageFile);
     printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
     free(cpuidMessage);
 

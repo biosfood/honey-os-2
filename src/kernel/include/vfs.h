@@ -115,5 +115,6 @@ extern FileSystem *createKernelFs();
 void processInitrd(void *fileData, uint32_t tarFileSize,
                    FileSystem *file_system);
 extern FileDescriptor *allocateFileDescriptor(struct Process *process);
+extern void fill_dirent(FillDirData *buf, char *name, int file_type);
 
 #endif // VFS_H

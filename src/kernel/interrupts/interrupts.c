@@ -25,18 +25,36 @@ __attribute__((section(".sharedFunctions")))
 __attribute__((aligned(0x10))) IdtEntry idtEntries[256] = {};
 
 ListElement *exceptionSubscriptions;
-
-void onInterrupt(void *cr3, uint32_t d, uint32_t c, uint32_t b, uint32_t a,
-                 uint32_t intNo) {
-    foreach (interruptSubscriptions[intNo], ServiceFunction *, provider,
-             { scheduleFunction(provider, NULL, intNo); })
-        ;
-    // TODO: here, a 'syscall(0)' should happen to allow other processes to also
-    // do stuff
-}
-
+extern File interrupt_files[256];
 extern ProcessThread *current_thread;
 extern uint32_t interruptReturn;
+
+
+void onInterrupt(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
+                 uint32_t b, uint32_t a, uint32_t intNo, uint32_t errorCode,
+                 uint32_t eip, uint32_t cs, uint32_t eflags, uint32_t esp) {
+    uint32_t data = '1';
+    File *file = &interrupt_files[intNo];
+    if (!file->data) {
+        return;
+    }
+    fifo_write(file, NULL, &data, 1);
+    return;
+    // TODO: make sure there actually is enough space on the stack here....
+    uint32_t newStack[] = {
+        U32(&interruptReturn),
+        U32(ebp),
+        d,
+        c,
+        b,
+        a,
+        eip,
+    };
+    current_thread->esp = PTR(esp) - sizeof(newStack);
+    current_thread->function = 0;
+    current_thread->resume = true;
+    memcpy(newStack, mapTemporaryA(getPhysicalAddress(current_thread->process->memory_information.pageDirectory, current_thread->esp)), sizeof(newStack));
+}
 
 void onException(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
                  uint32_t b, uint32_t a, uint32_t intNo, uint32_t errorCode,
@@ -167,10 +185,10 @@ void setupPic() {
     // PIC driver has a chance to set it up
     outb(0x20, 0x11);
     outb(0xA0, 0x11);
-    outb(0xA1, 32);
-    outb(0x21, 40);
-    outb(0xA1, 0x02);
+    outb(0x21, 32);
+    outb(0xA1, 40);
     outb(0x21, 0x04);
+    outb(0xA1, 0x02);
     outb(0x21, 0x1);
     outb(0xA1, 0x1);
     outb(0x21, 0xFF);

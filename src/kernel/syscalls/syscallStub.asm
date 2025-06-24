@@ -49,7 +49,6 @@ runFunction:
   mov cr3, eax
   mov eax, ebx
   xor ebp, ebp
-  sti
   sysexit
 runEnd:
   mov ebx, eax

@@ -62,7 +62,19 @@ uint32_t port_read(File *file, void *data, uint32_t size, uint32_t offset) {
     }
     uint32_t result;
     uint16_t port = (uint16_t) U32(file->data);
-    asm("in %%dx, %%eax" : "=a"(result) : "d"(port));
+    switch (size) {
+    case 1:
+        asm("in %%dx, %%al" : "=a"(result) : "d"(port));
+        break;
+    case 2:
+        asm("in %%dx, %%ax" : "=a"(result) : "d"(port));
+        break;
+    case 4:
+        asm("in %%dx, %%eax" : "=a"(result) : "d"(port));
+        break;
+    default:
+        return 0;
+    }
     memcpy(&result, data, MIN(4,size));
     return MIN(4,size);
 }

@@ -11,8 +11,12 @@ void fifo_write_descriptor(FileDescriptor *descriptor, Process *process,
     if (thread) {
         uint32_t bytes_to_transfer = MIN(size, thread->parameters[2]);
         char *threadWrite = PTR(thread->parameters[1]);
-        copy_between_processes(process, process_address, descriptor->process,
-                               threadWrite, bytes_to_transfer);
+        if (process) {
+            copy_between_processes(process, process_address, descriptor->process,
+                                   threadWrite, bytes_to_transfer);
+        } else {
+            copy_from_kernel_to_process(process_address, thread->process, threadWrite, bytes_to_transfer);
+        }
         descriptor->fifo_data.blocked_reading_thread = NULL;
         thread->returnValue = bytes_to_transfer;
         listAdd(&threads_to_process, thread);
@@ -20,16 +24,26 @@ void fifo_write_descriptor(FileDescriptor *descriptor, Process *process,
         if (bytes_to_transfer < thread->parameters[2]) {
             PipeData *entry = malloc(sizeof(PipeData));
             entry->length = size - bytes_to_transfer;
-            entry->data = copy_from_process_to_kernel(
-                process, PTR(process_address) + bytes_to_transfer,
-                entry->length);
+            if (process) {
+                entry->data = copy_from_process_to_kernel(
+                    process, PTR(process_address) + bytes_to_transfer,
+                    entry->length);
+            } else {
+                entry->data = malloc(entry->length);
+                memcpy(process_address + bytes_to_transfer, entry->data, entry->length);
+            }
             listAdd(&descriptor->fifo_data.queue, entry);
         }
     } else {
         PipeData *entry = malloc(sizeof(PipeData));
         entry->length = size;
-        entry->data =
-            copy_from_process_to_kernel(process, process_address, size);
+        if (process) {
+            entry->data =
+                copy_from_process_to_kernel(process, process_address, size);
+        } else {
+            entry->data = malloc(size);
+            memcpy(process_address, entry->data, size);
+        }
         listAdd(&descriptor->fifo_data.queue, entry);
     }
 }

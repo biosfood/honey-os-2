@@ -47,15 +47,18 @@ handleInterrupt:
 .goToKernelPages:
   mov eax, 0x500000
   mov cr3, eax
+  push ebp
   call onInterrupt
-  pop eax
-  mov cr3, eax
-  pop edx
-  pop ecx
-  pop ebx
-  pop eax
-  add esp, 8
-  iretd
+  add esp, 36
+  iret
+
+
+
+
+  mov eax, [temporaryESP]
+  mov esp, eax
+  pop ebp
+  ret
 
 %macro interruptHandler 1
   ALIGN 4

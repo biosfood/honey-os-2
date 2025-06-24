@@ -64,12 +64,11 @@ File *ramFsCreate(File *directory, char *name, enum FileType type) {
         ;
     RamFsFile *file = malloc(sizeof(RamFsFile));
     file->name = combineStrings(name, "");
-    file->livesInMemory = true;
     file->size = 0;
     file->data = NULL;
     file->file_system = directory->file_system;
     file->type = type;
-    listAdd(&directory->data, file);
+    listAdd((void *)&directory->data, file);
     return (void *)file;
 }
 
@@ -162,7 +161,7 @@ FileSystem *createRamfs() {
     rootDir->type = FILE_TYPE_DIRECTORY;
     rootDir->name = "/";
     rootDir->size = 0;
-    rootDir->livesInMemory = true;
+    rootDir->file_descriptors = NULL;
     FileSystem *file_system = malloc(sizeof(FileSystem));
     rootDir->file_system = file_system;
     file_system->data = rootDir;

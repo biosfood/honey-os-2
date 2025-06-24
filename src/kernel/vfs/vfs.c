@@ -54,10 +54,6 @@ void handleCreateFileSyscall(ProcessThread *thread) {
         thread->returnValue = -1;
         goto end;
     }
-    if (file->type == FILE_TYPE_FIFO) {
-        file->data = NULL;
-        file->data_ = NULL;
-    }
     thread->returnValue = 0;
 end:
     thread->resume = true;
@@ -110,7 +106,8 @@ void handleOpenSyscall(ProcessThread *thread) {
             char *directoryFileName = malloc(strlen(filename));
             memcpy(filename, directoryFileName, strlen(filename) + 1);
             int lastSlashPosition = strlen(filename) - 1;
-            while (lastSlashPosition && directoryFileName[lastSlashPosition] != '/') {
+            while (lastSlashPosition &&
+                   directoryFileName[lastSlashPosition] != '/') {
                 lastSlashPosition--;
             }
             directoryFileName[lastSlashPosition] = 0;
@@ -120,7 +117,8 @@ void handleOpenSyscall(ProcessThread *thread) {
                 thread->returnValue = -1;
                 return;
             }
-            file = dir->file_system->type->create(dir, filename + lastSlashPosition + 1, FILE_TYPE_FILE);
+            file = dir->file_system->type->create(
+                dir, filename + lastSlashPosition + 1, FILE_TYPE_FILE);
         } else {
             thread->returnValue = -1;
             return;
@@ -130,10 +128,9 @@ void handleOpenSyscall(ProcessThread *thread) {
     file_descriptor->file = file;
     file_descriptor->process = thread->process;
     file_descriptor->offset = 0;
-    file_descriptor->blockedReadingThreads = NULL;
-    file_descriptor->blockedWritingThreads = NULL;
     listAdd(&thread->process->openFileHandles, file_descriptor);
     thread->returnValue = file_descriptor->id;
+    listAdd(&file->file_descriptors, file_descriptor);
 }
 
 void handleCloseSyscall(ProcessThread *thread) {
@@ -150,6 +147,7 @@ void handleCloseSyscall(ProcessThread *thread) {
         return;
     }
     listRemoveValue(&thread->process->openFileHandles, file_descriptor);
+    listRemoveValue(&file_descriptor->file->file_descriptors, file_descriptor);
     free(file_descriptor);
     thread->returnValue = 0;
     thread->resume = true;
@@ -169,11 +167,10 @@ void handleStatSyscall(ProcessThread *thread) {
         return;
     }
     struct stat buf;
-    file_descriptor->file->file_system->type->getattr(
-        file_descriptor->file, &buf
-    );
-    copy_from_kernel_to_process(&buf, thread->process, PTR(thread->parameters[1]), sizeof(struct buf));
+    file_descriptor->file->file_system->type->getattr(file_descriptor->file,
+                                                      &buf);
+    copy_from_kernel_to_process(
+        &buf, thread->process, PTR(thread->parameters[1]), sizeof(struct stat));
     thread->resume = true;
     thread->returnValue = 0;
 }
-

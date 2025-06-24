@@ -100,9 +100,10 @@ extern void *copy_from_process_to_kernel(const Process *process,
 extern void copy_from_kernel_to_process(void *read, Process *process,
                                         void *threadWrite,
                                         uint32_t bytes_to_transfer);
-extern void copy_between_processes(const ProcessThread *readThread, void *from,
-                                   const ProcessThread *writeThread, void *to,
+extern void copy_between_processes(const Process *from_process, void *from,
+                                   const Process *to_process, void *to,
                                    const uint32_t bytes_to_transfer);
+
 // memory operations
 extern VirtualMemoryEntry *
 process_map_memory_simple(Process *process, PhysicalMemoryEntry *physical,

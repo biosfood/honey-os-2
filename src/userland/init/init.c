@@ -23,13 +23,12 @@ int main() {
         execv("/bin/serial", NULL);
     }
 
-    printf("Hello World!\n");
     const int messageFile = open("/dev/cpuid/0", 0);
-    uint32_t *cpuidMessage = malloc(4 * 4);
+    uint32_t cpuidMessage[4];
     read(messageFile, cpuidMessage, 16);
     close(messageFile);
+    printf("Hello World!\n");
     printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
-    free(cpuidMessage);
 
     initPCI();
 

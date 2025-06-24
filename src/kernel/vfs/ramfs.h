@@ -9,6 +9,7 @@
 typedef struct {
     File;
     char *name;
+    uint32_t size;
 } RamFsFile;
 
 #endif // RAMFS_H

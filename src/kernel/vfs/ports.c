@@ -8,12 +8,10 @@ ListElement *port_files;
 
 FileSystem port_file_system;
 File port_root = {
-    .size = 0,
-    .livesInMemory = true,
     .data = NULL,
-    .data_ = NULL,
     .file_system = &port_file_system,
     .type = FILE_TYPE_DIRECTORY,
+    .file_descriptors = NULL,
 };
 
 File *port_get_file(FileSystem *file_system, const char *filename) {
@@ -47,8 +45,6 @@ File *port_get_file(FileSystem *file_system, const char *filename) {
     file->data = PTR(id);
     file->file_system = &port_file_system;
     file->type = FILE_TYPE_FILE;
-    file->livesInMemory = true;
-    file->size = 4;
     listAdd(&port_files, file);
     return file;
 }
@@ -94,7 +90,7 @@ uint32_t port_write(File *file, void *data, uint32_t size, uint32_t offset) {
 
 uint32_t port_getattr(File *file, struct stat *buf) {
     buf->st_uid = U32(file);
-    buf->st_size = file->size;
+    buf->st_size = 1;
     return sizeof(struct stat);
 }
 

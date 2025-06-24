@@ -11,12 +11,10 @@ ListElement *cpuid_files;
 
 FileSystem cpuid_file_system;
 File cpuid_root = {
-    .size = 0,
-    .livesInMemory = true,
     .data = NULL,
-    .data_ = NULL,
     .file_system = &cpuid_file_system,
     .type = FILE_TYPE_DIRECTORY,
+    .file_descriptors = NULL,
 };
 
 File *cpuid_get(CpuidFileSystem *cpuidfs, char *filename) {
@@ -50,8 +48,6 @@ File *cpuid_get(CpuidFileSystem *cpuidfs, char *filename) {
     file->data = PTR(id);
     file->file_system = &cpuid_file_system;
     file->type = FILE_TYPE_FILE;
-    file->livesInMemory = true;
-    file->size = 16;
     listAdd(&cpuid_files, file);
     return file;
 }
@@ -78,7 +74,7 @@ uint32_t cpuid_read(File *file, void *data, uint32_t size, uint32_t offset) {
 
 uint32_t cpuid_getattr(File *file, struct stat *buf) {
     buf->st_uid = U32(file);
-    buf->st_size = file->size;
+    buf->st_size = 10;
 }
 
 FileSystemType cpuid_file_system_type = {

@@ -62,35 +62,30 @@ KernelFsFileSystem kernel_fs_file_system = {
     .rootDir =
         {
             .file_system = (void *)&kernel_fs_file_system,
-            .size = 0,
             .type = FILE_TYPE_DIRECTORY,
             .data = NULL,
-            .data_ = NULL,
-            .livesInMemory = true,
             .read = NULL,
             .write = NULL,
+            .file_descriptors = NULL,
         },
     .mem =
         {
             .file_system = (void *)&kernel_fs_file_system,
-            .size = 0,
             .type = FILE_TYPE_FILE,
             .data = NULL,
-            .data_ = NULL,
             .read = NULL,
             .write = NULL,
-            .livesInMemory = true,
+            .file_descriptors = NULL,
         },
-    .null = {
-        .file_system = (void *)&kernel_fs_file_system,
-        .size = 0,
-        .type = FILE_TYPE_FILE,
-        .data = NULL,
-        .data_ = NULL,
-        .read = null_read,
-        .write = null_write,
-        .livesInMemory = true,
-    },
+    .null =
+        {
+            .file_system = (void *)&kernel_fs_file_system,
+            .type = FILE_TYPE_FILE,
+            .data = NULL,
+            .read = null_read,
+            .write = null_write,
+            .file_descriptors = NULL,
+        },
 };
 
 FileSystem *createKernelFs() { return (void *)&kernel_fs_file_system; }

@@ -4,9 +4,10 @@
 
 #ifndef VFS_H
 #define VFS_H
-#include <util.h>
 #include <sys/stat.h>
+#include <util.h>
 
+struct ProcessThread;
 struct FileSystem;
 struct File;
 struct FileDescriptor;
@@ -23,14 +24,18 @@ typedef struct FileDescriptorOperations {
                            char *name);
 } FileDescriptorOperations;
 
+typedef struct FiFoData {
+    struct ProcessThread *blocked_reading_thread;
+    ListElement *queue;
+} FiFoData;
+
 typedef struct FileDescriptor {
     uint32_t id;
     FileDescriptorOperations *operations;
     struct File *file;
     struct Process *process;
     uint32_t offset;
-    ListElement *blockedWritingThreads;
-    ListElement *blockedReadingThreads;
+    FiFoData fifo_data;
 } FileDescriptor;
 
 enum FileType {
@@ -52,30 +57,12 @@ enum FileType {
 typedef struct File {
     struct FileSystem *file_system;
     enum FileType type;
-    uint32_t size;
-    bool livesInMemory; // used to determine if the file could benefit from
-                        // being cached in memory or if that would just waste
-                        // resources.
-    // data for the filesystem to track the position of the file and other
-    // information. This could refer to a block address, URL or any other data.
-    // for pipe files, this is the queue of datagrams to process.
+    // for the filesystem to do with whatever it wants
+    // most should probably allocate a descriptor for the file but if it's just
+    // a single number, feel free to store it here as well.
     void *data;
-    void *data_;
+    ListElement *file_descriptors;
 } File;
-
-typedef struct {
-    struct FileSystem *file_system;
-    enum FileType type;
-    uint32_t size;
-    bool livesInMemory; // used to determine if the file could benefit from
-                        // being cached in memory or if that would just waste
-                        // resources.
-    // data for the filesystem to track the position of the file and other
-    // information. This could refer to a block address, URL or any other data.
-    // for pipe files, this is the queue of datagrams to process.
-    struct ProcessThread *blockedReadingThread;
-    ListElement *queue;
-} FiFoFile;
 
 typedef struct {
     File *(*getFile)(struct FileSystem *file_system, char *path);
@@ -101,11 +88,6 @@ typedef struct {
 } Mount;
 
 typedef struct {
-    uint32_t length;
-    void *data;
-} PipeData;
-
-typedef struct {
     void *data;
     uint32_t size, offset, current_offset, bytes_written;
 } FillDirData;
@@ -116,5 +98,9 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
                    FileSystem *file_system);
 extern FileDescriptor *allocateFileDescriptor(struct Process *process);
 extern void fill_dirent(FillDirData *buf, char *name, int file_type);
+
+extern void fifo_write(File *file, struct Process *process, void *process_address,
+                uint32_t size);
+extern void fifo_read(struct ProcessThread *thread, FiFoData *fifo);
 
 #endif // VFS_H

@@ -37,22 +37,22 @@ void copy_from_kernel_to_process(void *read, Process *process,
     }
 }
 
-void copy_between_processes(const ProcessThread *readThread, void *from,
-                            const ProcessThread *writeThread, void *to,
+void copy_between_processes(const Process *from_process, void *from,
+                            const Process *to_process, void *to,
                             const uint32_t bytes_to_transfer) {
 
     char *write = getPhysicalAddress(
-        writeThread->process->memory_information.pageDirectory, to);
+        to_process->memory_information.pageDirectory, to);
     char *read = getPhysicalAddress(
-        readThread->process->memory_information.pageDirectory, from);
+        from_process->memory_information.pageDirectory, from);
     write = mapTemporaryA(write);
     read = mapTemporaryB(read);
     for (int i = 0; i < bytes_to_transfer; i++) {
         if ((U32(read) & 0xFFF) == 0 || (U32(write) & 0xFFF) == 0) {
             read = getPhysicalAddress(
-                readThread->process->memory_information.pageDirectory, from);
+                from_process->memory_information.pageDirectory, from);
             write = getPhysicalAddress(
-                writeThread->process->memory_information.pageDirectory, to);
+                to_process->memory_information.pageDirectory, to);
             write = mapTemporaryA(write);
             read = mapTemporaryB(read);
         }

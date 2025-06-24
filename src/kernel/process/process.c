@@ -1,6 +1,3 @@
-#include "elf.h"
-
-#include <iso646.h>
 #include <process.h>
 #include <stddef.h>
 #include <vfs.h>
@@ -24,42 +21,8 @@ void handleWriteSyscall(ProcessThread *thread) {
         return;
     }
     if (file_descriptor->file->type == FILE_TYPE_FIFO) {
-        FiFoFile *file = (void *)file_descriptor->file;
-        if (file->blockedReadingThread) {
-            ProcessThread *writeThread = file->blockedReadingThread,
-                          *readThread = thread;
-            // there is a thread that has called read() and no data was
-            // available
-            uint32_t bytes_to_transfer =
-                MIN(writeThread->parameters[2], readThread->parameters[2]);
-            char *threadWrite = PTR(writeThread->parameters[1]);
-            char *threadRead = PTR(readThread->parameters[1]);
-            copy_between_processes(readThread, threadRead, writeThread,
-                                   threadWrite, bytes_to_transfer);
-            file->blockedReadingThread = NULL;
-            writeThread->returnValue = bytes_to_transfer;
-            readThread->returnValue = bytes_to_transfer;
-            listAdd(&threads_to_process, writeThread);
-            thread->resume = true;
-            if (bytes_to_transfer < readThread->parameters[2]) {
-                PipeData *entry = malloc(sizeof(PipeData));
-                entry->length = thread->parameters[2] - bytes_to_transfer;
-                entry->data = malloc(entry->length);
-                entry->data = copy_from_process_to_kernel(
-                    thread->process,
-                    PTR(writeThread->parameters[1]) + bytes_to_transfer,
-                    entry->length);
-                listAdd(&file->queue, entry);
-            }
-        } else {
-            PipeData *entry = malloc(sizeof(PipeData));
-            entry->length = thread->parameters[2];
-            entry->data = copy_from_process_to_kernel(
-                thread->process, PTR(thread->parameters[1]),
-                thread->parameters[2]);
-            listAdd(&file->queue, entry);
-            thread->resume = true;
-        }
+        fifo_write(file_descriptor->file, thread->process, PTR(thread->parameters[1]), thread->parameters[2]);
+        thread->resume = true;
     } else {
         void *data = copy_from_process_to_kernel(
             thread->process, PTR(thread->parameters[1]), thread->parameters[2]);
@@ -70,40 +33,6 @@ void handleWriteSyscall(ProcessThread *thread) {
         free(data);
         thread->returnValue = bytes_transfered;
         thread->resume = true;
-    }
-}
-
-void fifo_read(ProcessThread *thread, FileDescriptor *file_descriptor) {
-    FiFoFile *file = (void *)file_descriptor->file;
-    if (file->queue) {
-        PipeData *data = listPopFirst(&file->queue);
-        uint32_t bytes_to_transfer = MIN(thread->parameters[2], data->length);
-        copy_from_kernel_to_process(data->data, thread->process,
-                                    PTR(thread->parameters[1]),
-                                    bytes_to_transfer);
-        if (data->length > thread->parameters[2]) {
-            // some data is left over. Just making a new entry and putting
-            // it right at the beginning of the queue
-            ListElement *list_element = malloc(sizeof(ListElement));
-            void *old = data->data;
-            void *new = malloc(data->length - thread->parameters[2]);
-            memcpy(old + thread->parameters[2], new,
-                   data->length - thread->parameters[2]);
-            free(old);
-            data->length -= thread->parameters[2];
-            data->data = new;
-            list_element->data = data;
-            list_element->next = file->queue;
-            file->queue = list_element;
-        } else {
-            free(data->data);
-            free(data);
-        }
-        thread->returnValue = bytes_to_transfer;
-        thread->resume = true;
-    } else {
-        file->blockedReadingThread = thread;
-        thread->resume = false;
     }
 }
 
@@ -126,7 +55,7 @@ void handleReadSyscall(ProcessThread *thread) {
         return;
     }
     if (file_descriptor->file->type == FILE_TYPE_FIFO) {
-        fifo_read(thread, file_descriptor);
+        fifo_read(thread, &file_descriptor->fifo_data);
     } else {
         // TODO: this is horribly inefficient
         void *data = malloc(thread->parameters[2]);

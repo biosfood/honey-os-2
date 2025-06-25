@@ -76,6 +76,7 @@ FileDescriptor *allocateFileDescriptor(Process *process) {
     } else {
         ListElement *previous = process->openFileHandles;
         ListElement *current = process->openFileHandles->next;
+        descriptor->id++;
         while (current &&
                descriptor->id == ((FileDescriptor *)current->data)->id) {
             previous = current;
@@ -93,11 +94,7 @@ FileDescriptor *allocateFileDescriptor(Process *process) {
 }
 
 void handleOpenSyscall(ProcessThread *thread) {
-    // TODO: copy filename to kernel memory space
-    void *filename = PTR(thread->parameters[0]);
-    filename = getPhysicalAddress(
-        thread->process->memory_information.pageDirectory, filename);
-    filename = mapTemporaryB(filename);
+    char *filename = copy_string_from_process(thread->process, PTR(thread->parameters[0]));
     File *file = thread->process->container->vfs->type->getFile(
         thread->process->container->vfs, filename);
     thread->resume = true;
@@ -124,11 +121,11 @@ void handleOpenSyscall(ProcessThread *thread) {
             return;
         }
     }
+    free(filename);
     FileDescriptor *file_descriptor = allocateFileDescriptor(thread->process);
     file_descriptor->file = file;
     file_descriptor->process = thread->process;
     file_descriptor->offset = 0;
-    listAdd(&thread->process->openFileHandles, file_descriptor);
     thread->returnValue = file_descriptor->id;
     listAdd(&file->file_descriptors, file_descriptor);
 }

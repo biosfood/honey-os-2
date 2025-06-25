@@ -35,17 +35,14 @@ Container *newContainer(FileSystem *fs) {
     FileDescriptor *stdin = allocateFileDescriptor(init_process);
     stdin->file = nulldev;
     stdin->process = (void *)init_process;
-    listAdd(&init_process->openFileHandles, stdin);
 
     FileDescriptor *stdout = allocateFileDescriptor(init_process);
     stdout->file = nulldev;
     stdout->process = (void *)init_process;
-    listAdd(&init_process->openFileHandles, stdout);
 
     FileDescriptor *stderr = allocateFileDescriptor(init_process);
     stderr->file = nulldev;
     stderr->process = (void *)init_process;
-    listAdd(&init_process->openFileHandles, stderr);
 
     return container;
 }

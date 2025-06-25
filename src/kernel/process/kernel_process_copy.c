@@ -70,14 +70,14 @@ char *copy_string_from_process(const Process *process, const void *const from) {
     const uint8_t *read = mapTemporaryA(getPhysicalAddress(
         process->memory_information.pageDirectory, (void *)current_from));
     while (*read) {
+        len++;
+        read++;
+        current_from++;
         if ((U32(read) & 0xFFF) == 0) {
             read = mapTemporaryA(
                 getPhysicalAddress(process->memory_information.pageDirectory,
                                    (void *)current_from));
         }
-        len++;
-        read++;
-        current_from++;
     }
     return copy_from_process_to_kernel(process, from, len + 1);
 }

@@ -4,6 +4,8 @@ import gdb
 type_map = {
     "struct Process": {
         "virtual_memory_entries": "VirtualMemoryEntry",
+        "open_file_handles": "FileDescriptor",
+        "openFileHandles": "FileDescriptor",
     },
     "struct VirtualMemoryEntry": {
         "mappings": "MemoryMapping",

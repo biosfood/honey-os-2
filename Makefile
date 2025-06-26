@@ -7,7 +7,7 @@ LD_FLAGS = -z max-page-size=0x1000 -T link.ld
 AS = nasm
 ASFlAGS = -felf32
 EMU = qemu-system-i386
-EMUFLAGS = -m 1G -drive if=none,id=stick,format=raw,file=$(IMAGE_FILE) -no-reboot -no-shutdown -monitor unix:qemu-monitor-socket,server,nowait -parallel stdio -d int -D crashlog.log -d int -device qemu-xhci -device usb-mouse -device usb-storage,drive=stick -device usb-kbd -gdb tcp::9000
+EMUFLAGS = -m 1G -drive if=none,id=stick,format=raw,file=$(IMAGE_FILE) -no-reboot -no-shutdown -monitor unix:qemu-monitor-socket,server,nowait -serial stdio -d int -D crashlog.log -d int -device qemu-xhci -device usb-mouse -device usb-storage,drive=stick -device usb-kbd -gdb tcp::9000
 
 BUILD_FOLDER = build
 

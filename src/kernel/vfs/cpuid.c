@@ -26,13 +26,11 @@ File *cpuid_get(CpuidFileSystem *cpuidfs, char *filename) {
     }
     uint32_t id = 0;
     filename++;
-    while (*filename) {
-        if (*filename < '0' || *filename > '9') {
-            return NULL;
-        }
-        id *= 10;
-        id += *filename - '0';
-        filename++;
+    if (!read_integer_from_filename(&filename, &id)) {
+        return NULL;
+    }
+    if (*filename) {
+        return NULL;
     }
     File *file = NULL;
     foreach (cpuid_files, File *, current_file, {

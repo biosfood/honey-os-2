@@ -103,4 +103,6 @@ extern void fifo_write(File *file, struct Process *process, void *process_addres
                 uint32_t size);
 extern void fifo_read(struct ProcessThread *thread, FiFoData *fifo);
 
+extern bool read_integer_from_filename(char **filename, uint32_t *data);
+
 #endif // VFS_H

@@ -64,8 +64,8 @@ int main() {
     int fd = open("/dev/interrupt/36", 0);
     uint32_t buf;
 
-    int data_master_fd = open("/dev/port/33", 0);
-    int control_master_fd = open("/dev/port/32", 0);
+    int data_master_fd = open("/dev/port/0x21", 0);
+    int control_master_fd = open("/dev/port/0x20", 0);
     int data_slave_fd = open("/dev/port/161", 0);
     int control_slave_fd = open("/dev/port/160", 0);
     int a = open("/dev/port/1016", 0);

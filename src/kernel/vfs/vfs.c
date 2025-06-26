@@ -8,6 +8,43 @@
 #include <stddef.h>
 #include <sys/stat.h>
 
+bool read_integer_from_filename(char **filename, uint32_t *data) {
+    char *text = *filename;
+    uint32_t result = 0;
+    if (text[0] == '0' && text[1] == 'x') {
+        text += 2;
+        while (*text && *text != '/') {
+            result <<= 4;
+            if (*text >= '0' && *text <= '9') {
+                result += *text - '0';
+            } else if (*text >= 'A' && *text <= 'F') {
+                result += *text - 'A' + 10;
+            } else if (*text >= 'a' && *text <= 'f') {
+                result += *text - 'a' + 10;
+            } else {
+                return false;
+            }
+            text++;
+        }
+    } else {
+        while (*text && *text != '/') {
+            result *= 10;
+            if (*text >= '0' && *text <= '9') {
+                result += *text - '0';
+            } else {
+                return false;
+            }
+            text++;
+        }
+    }
+    if (*text == '/') {
+        text++;
+    }
+    *filename = text;
+    *data = result;
+    return true;
+}
+
 void handleCreateFileSyscall(ProcessThread *thread) {
     char *mapped_name = mapTemporaryB(
         getPhysicalAddress(thread->process->memory_information.pageDirectory,
@@ -94,7 +131,8 @@ FileDescriptor *allocateFileDescriptor(Process *process) {
 }
 
 void handleOpenSyscall(ProcessThread *thread) {
-    char *filename = copy_string_from_process(thread->process, PTR(thread->parameters[0]));
+    char *filename =
+        copy_string_from_process(thread->process, PTR(thread->parameters[0]));
     File *file = thread->process->container->vfs->type->getFile(
         thread->process->container->vfs, filename);
     thread->resume = true;

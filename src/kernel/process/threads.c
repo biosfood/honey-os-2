@@ -12,6 +12,7 @@ void handlePthreadCreateSyscall(ProcessThread *thread) {
               new_thread->esp);
     new_thread->esp += 0x1000 - 0x10;
     *(void **)new_thread->esp = PTR(thread->parameters[2]);
+    *(void **)(new_thread->esp + 0x8) = PTR(thread->parameters[3]);
     *(void **)(new_thread->esp + 0x4) = &runEnd;
     // TODO: here, this should behave as pthread_exit, the main() thread exit
     // must behave as exit()

@@ -39,8 +39,6 @@ PhysicalMemoryEntry kernel_functions_physical = {.physical = 0, 4, 0};
 
 
 ProcessThread *processLoadELF(Process *process, File *file) {
-    // use this function ONLY to load the initrd/loader program(maybe also the
-    // ELF loader service)!
     struct stat s;
     file->file_system->type->getattr(file, &s);
     void *file_data = malloc(s.st_size);

@@ -22,6 +22,10 @@ int main() {
     if (!pid) {
         execv("/bin/serial", NULL);
     }
+    pid = fork();
+    if (!pid) {
+        execv("/bin/pic", NULL);
+    }
 
     const int messageFile = open("/dev/cpuid/0", 0);
 
@@ -38,14 +42,13 @@ int main() {
     posix_dirent *data = malloc(stat.st_size);
     int len = read(pcidevs, data, stat.st_size);
     posix_dirent *current = data;
-    int classnameFiledes;
     char *classnameFilename = NULL;
     while (len) {
         if (!current->d_reclen) {
             break;
         }
         asprintf(&classnameFilename, "/dev/pci/%s/class_name", current->d_name);
-        classnameFiledes = open(classnameFilename, 0);
+        int classnameFiledes = open(classnameFilename, 0);
 
         fstat(classnameFiledes, &stat);
         char *classname = malloc(stat.st_size);
@@ -60,43 +63,4 @@ int main() {
     free(data);
     close(pcidevs);
     printf("done\n");
-    // int fd = open("/dev/interrupt/33", 0);
-    int fd = open("/dev/interrupt/36", 0);
-    uint32_t buf;
-
-    int data_master_fd = open("/dev/port/0x21", 0);
-    int control_master_fd = open("/dev/port/0x20", 0);
-    int data_slave_fd = open("/dev/port/161", 0);
-    int control_slave_fd = open("/dev/port/160", 0);
-    int a = open("/dev/port/1016", 0);
-    uint32_t d = ~(1 << 4);
-
-
-    write(data_master_fd, &d, 1);
-    d = 0xFF;
-    write(data_slave_fd, &d, 1);
-    // io_out(0xA1, 0x0, 1);
-    // io_out(0x70, io_in(0x70, 1) | 0x80, 1);
-    // io_in(0x71, 1);
-    d = 0x0B;
-    write(control_master_fd, &d, 1);
-
-    d = 0x20;
-    write(control_master_fd, &d, 1);
-    write(control_slave_fd, &d, 1);
-    read(a, &d, 1);
-    while (1) {
-        read(fd, &buf, 1);
-        read(control_master_fd, &d, 1);
-        if (d) {
-            printf("interrupt: %i\n", d);
-            read(a, &d, 1);
-            read(a, &d, 1);
-            read(a, &d, 1);
-            read(a, &d, 1);
-            d = 0x20;
-            write(control_master_fd, &d, 1);
-            write(control_slave_fd, &d, 1);
-        }
-    }
 }

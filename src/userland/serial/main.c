@@ -7,9 +7,26 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+    void readLoop() {
+    int irq_fd = open("/dev/pic/4", 0);
+    int write_fd = open("/dev/serin", 0);
+
+    int data =  open("/dev/port/0x3F8", 0);
+    while (1) {
+        uint32_t buf = 0;
+        read(data, &buf, 1);
+        while (buf) {
+            write(write_fd, &buf, 1);
+            read(data, &buf, 1);
+        }
+        read(irq_fd, &buf, 1);
+    }
+}
+
 char buffer[1024];
 
 void main() {
+    pthread_create(NULL, NULL, readLoop, NULL);
     int fd = open("/dev/serout", 0);
 
     int rbr = open("/dev/port/1016", 0);

@@ -13,6 +13,7 @@ int main() {
     struct stat stat;
     mkdir("/dev/", 0);
     mkfifo("/dev/serout", 0);
+    mkfifo("/dev/serin", 0);
 
     // reassign STDOUT
     close(STDOUT_FILENO);
@@ -63,4 +64,12 @@ int main() {
     free(data);
     close(pcidevs);
     printf("done\n");
+
+    int fd = open("/dev/serin", 0);
+    char buf;
+    while (1) {
+        read(fd, &buf, 1);
+        printf("in: %x\n", buf);
+        // write(STDOUT_FILENO, &buf, 1);
+    }
 }

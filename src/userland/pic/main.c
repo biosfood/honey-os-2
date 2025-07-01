@@ -35,11 +35,13 @@ void handler(int i) {
     free(filename);
 
     asprintf(&filename, "/dec/pic/%i", i);
-    irq_fd_dec[i] = mkfifo(filename, 0);
+    mkfifo(filename, 0);
+    irq_fd_dec[i] = open(filename, 0);
     free(filename);
 
     asprintf(&filename, "/dev/pic/%i", i);
-    irq_fd_hex[i] = mkfifo(filename, 0);
+    mkfifo(filename, 0);
+    irq_fd_hex[i] = open(filename, 0);
     free(filename);
 
     printf("init %i\n", i);
@@ -59,7 +61,6 @@ void handler(int i) {
             write(irq_fd_hex[index], &buf, 1);
             write(irq_fd_dec[index], &buf, 1);
             printf("Interrupt %i\n", index);
-            read(a, &buf, 1);
         }
         if (isr) {
             buf = 0x20;
@@ -79,7 +80,6 @@ int main(char **argv, int argc) {
     data_master_fd = open("/dev/port/0x21", 0);
     control_slave_fd = open("/dev/port/0xA0", 0);
     data_slave_fd = open("/dev/port/0xA1", 0);
-    a = open("/dev/port/0x3F8", 0);
 
     // only unmasking one for now...
     uint32_t d = ~(1 << 4);

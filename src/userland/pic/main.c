@@ -44,7 +44,6 @@ void handler(int i) {
     irq_fd_hex[i] = open(filename, 0);
     free(filename);
 
-    printf("init %i\n", i);
     uint32_t buf;
     while (1) {
         read(interrupt_fd, &buf, 1);
@@ -60,7 +59,6 @@ void handler(int i) {
             buf = '1';
             write(irq_fd_hex[index], &buf, 1);
             write(irq_fd_dec[index], &buf, 1);
-            printf("Interrupt %i\n", index);
         }
         if (isr) {
             buf = 0x20;

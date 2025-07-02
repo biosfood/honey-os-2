@@ -1,14 +1,14 @@
 #include "pci.h"
 
 #include <dirent.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
+#include <fnctl.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <fnctl.h>
 
 #include <hlib.h>
 
@@ -86,38 +86,57 @@ void pciConfigWriteWord(uint8_t bus, uint8_t device, uint8_t function,
 
 void checkBus(uint8_t);
 
+#define CREATE_FILE(filename, ...)                                             \
+    {                                                                          \
+        char *path;                                                            \
+        asprintf(&path, "/dev/pci/%i:%i.%i/" filename, bus, device,           \
+                 function);                                                    \
+        int fd = open(path, O_CREAT);                                          \
+        dprintf(fd, __VA_ARGS__);                                              \
+        close(fd);                                                             \
+        free(path);                                                            \
+    }
+
 void checkFunction(uint8_t bus, uint8_t device, uint8_t function) {
     uint8_t class = READ8(0xB);
     if (!class || class == 0xFF) {
         return;
     }
-    PciDevice *pciDevice = malloc(sizeof(PciDevice));
-    pciDevice->bus = bus;
-    pciDevice->device = device;
-    pciDevice->function = function;
-    pciDevice->class = class;
-    pciDevice->vendorId = READ16(0x00);
-    pciDevice->deviceId = READ16(0x02);
-    pciDevice->configuration = READ16(0x04);
-    pciDevice->programmingInterface = READ8(0x09);
-    pciDevice->subclass = READ8(0x0A);
+    PciDevice pciDevice;
+    pciDevice.bus = bus;
+    pciDevice.device = device;
+    pciDevice.function = function;
+    pciDevice.class = class;
+    pciDevice.vendorId = READ16(0x00);
+    pciDevice.deviceId = READ16(0x02);
+    pciDevice.configuration = READ16(0x04);
+    pciDevice.programmingInterface = READ8(0x09);
+    pciDevice.subclass = READ8(0x0A);
     for (uint8_t i = 0; i < 6; i++) {
-        pciDevice->bar[i] = READ(0x10 + 4 * i);
+        pciDevice.bar[i] = READ(0x10 + 4 * i);
     }
     char *path;
+
+    // make directories for the pci device: one for everything, and one for
+    // BARs.
     asprintf(&path, "/dev/pci/%i:%i.%i", bus, device, function);
     mkdir(path, 0);
     free(path);
 
-    asprintf(&path, "/dev/pci/%i:%i.%i/class_name", bus, device, function);
-    int fd = open(path, O_CREAT);
-    write(fd, classNames[pciDevice->class], strlen(classNames[pciDevice->class]) + 1);
-    close(fd);
+    asprintf(&path, "/dev/pci/%i:%i.%i/bar", bus, device, function);
+    mkdir(path, 0);
     free(path);
 
-    pciDevice->id = listCount(pciDevices);
-    listAdd(&pciDevices, pciDevice);
-    if (class == 6 && pciDevice->subclass == 4) {
+    CREATE_FILE("class", "%i", pciDevice.class);
+    CREATE_FILE("class_name", "%s", classNames[pciDevice.class]);
+    CREATE_FILE("vendor", "%i", pciDevice.vendorId);
+    CREATE_FILE("device", "%i", pciDevice.deviceId);
+    CREATE_FILE("configuration", "%i", pciDevice.configuration);
+
+    CREATE_FILE("programming_interface", "%i", pciDevice.programmingInterface);
+    CREATE_FILE("subclass", "%i", pciDevice.subclass);
+
+    if (class == 6 && pciDevice.subclass == 4) {
         checkBus(READ8(0x19));
     }
 }
@@ -170,28 +189,36 @@ void main() {
     initializePci();
     printf("done.\n");
 
-
     int pcidevs = open("/dev/pci", 0);
     struct stat stat;
     fstat(pcidevs, &stat);
     posix_dirent *data = malloc(stat.st_size);
     int len = read(pcidevs, data, stat.st_size);
     posix_dirent *current = data;
-    char *classnameFilename = NULL;
+    char *filename = NULL;
     while (len) {
         if (!current->d_reclen) {
             break;
         }
-        asprintf(&classnameFilename, "/dev/pci/%s/class_name", current->d_name);
-        int classnameFiledes = open(classnameFilename, 0);
-
-        fstat(classnameFiledes, &stat);
+        asprintf(&filename, "/dev/pci/%s/class_name", current->d_name);
+        int fd = open(filename, 0);
+        free(filename);
+        fstat(fd, &stat);
         char *classname = malloc(stat.st_size);
-        read(classnameFiledes, classname, stat.st_size);
-        printf("%s (%i): %s\n", classnameFilename, stat.st_size, classname);
-        free(classnameFilename);
+        read(fd, classname, stat.st_size);
+        close(fd);
+
+        asprintf(&filename, "/dev/pci/%s/class", current->d_name);
+        fd = open(filename, 0);
+        free(filename);
+        fstat(fd, &stat);
+        char *class = malloc(stat.st_size);
+        read(fd, class, stat.st_size);
+        close(fd);
+
+        printf("%s: class %s (%s)\n", current->d_name, class, classname);
         free(classname);
-        close(classnameFiledes);
+        free(class);
         len -= current->d_reclen;
         current = ((void *)current) + current->d_reclen;
     }
@@ -199,7 +226,6 @@ void main() {
     close(pcidevs);
     printf("done\n");
     while (1) {
-        read(0,&data, 0);
+        read(0, &data, 0);
     }
-
 }

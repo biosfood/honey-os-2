@@ -19,6 +19,16 @@ static inline int printf(const char *restrict format, ...) {
     return _vdprintf(allocationData, STDOUT_FILENO, format, ap);
 }
 
+static inline int dprintf(int filedes, const char *restrict format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    extern int _vdprintf(AllocationData, int filedes, const char *format, va_list ap);
+    int result =  _vdprintf(allocationData, filedes, format, ap);
+    va_end(ap);
+    return result;
+}
+
+
 static inline int asprintf(char **restrict ptr, const char *restrict format, ...) {
     va_list ap;
     va_start(ap, format);

@@ -7,10 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-extern void initPCI();
-
 int main() {
-    struct stat stat;
     mkdir("/dev/", 0);
     mkfifo("/dev/serout", 0);
     mkfifo("/dev/serin", 0);
@@ -27,6 +24,10 @@ int main() {
     if (!pid) {
         execv("/bin/pic", NULL);
     }
+    pid = fork();
+    if (!pid) {
+        execv("/bin/index-pci", NULL);
+    }
 
     const int messageFile = open("/dev/cpuid/0", 0);
 
@@ -35,35 +36,6 @@ int main() {
     close(messageFile);
     printf("Hello World!\n");
     printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
-
-    initPCI();
-
-    int pcidevs = open("/dev/pci", 0);
-    fstat(pcidevs, &stat);
-    posix_dirent *data = malloc(stat.st_size);
-    int len = read(pcidevs, data, stat.st_size);
-    posix_dirent *current = data;
-    char *classnameFilename = NULL;
-    while (len) {
-        if (!current->d_reclen) {
-            break;
-        }
-        asprintf(&classnameFilename, "/dev/pci/%s/class_name", current->d_name);
-        int classnameFiledes = open(classnameFilename, 0);
-
-        fstat(classnameFiledes, &stat);
-        char *classname = malloc(stat.st_size);
-        read(classnameFiledes, classname, stat.st_size);
-        printf("%s (%i): %s\n", classnameFilename, stat.st_size, classname);
-        free(classnameFilename);
-        free(classname);
-        close(classnameFiledes);
-        len -= current->d_reclen;
-        current = ((void *)current) + current->d_reclen;
-    }
-    free(data);
-    close(pcidevs);
-    printf("done\n");
 
     int fd = open("/dev/serin", 0);
     char buf;

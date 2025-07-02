@@ -1,6 +1,7 @@
 #include "pci.h"
 
-#include "unistd.h"
+#include <dirent.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
 #include <stdbool.h>
@@ -100,9 +101,8 @@ void checkFunction(uint8_t bus, uint8_t device, uint8_t function) {
     pciDevice->configuration = READ16(0x04);
     pciDevice->programmingInterface = READ8(0x09);
     pciDevice->subclass = READ8(0x0A);
-    uint32_t temp;
     for (uint8_t i = 0; i < 6; i++) {
-        pciDevice->bar[i] = (temp = READ(0x10 + 4 * i));
+        pciDevice->bar[i] = READ(0x10 + 4 * i);
     }
     char *path;
     asprintf(&path, "/dev/pci/%i:%i.%i", bus, device, function);
@@ -110,7 +110,7 @@ void checkFunction(uint8_t bus, uint8_t device, uint8_t function) {
     free(path);
 
     asprintf(&path, "/dev/pci/%i:%i.%i/class_name", bus, device, function);
-    int fd = open(path,O_CREAT);
+    int fd = open(path, O_CREAT);
     write(fd, classNames[pciDevice->class], strlen(classNames[pciDevice->class]) + 1);
     close(fd);
     free(path);
@@ -162,11 +162,44 @@ void initializePci() {
     initialized = true;
 }
 
-void initPCI() {
+void main() {
     config_address_fd = open("/dev/port/3320", 0);
     config_data_fd = open("/dev/port/3324", 0);
-    printf("indexing PIC bus... ");
+    printf("indexing PCI bus... ");
     mkdir("/dev/pci", 0);
     initializePci();
     printf("done.\n");
+
+
+    int pcidevs = open("/dev/pci", 0);
+    struct stat stat;
+    fstat(pcidevs, &stat);
+    posix_dirent *data = malloc(stat.st_size);
+    int len = read(pcidevs, data, stat.st_size);
+    posix_dirent *current = data;
+    char *classnameFilename = NULL;
+    while (len) {
+        if (!current->d_reclen) {
+            break;
+        }
+        asprintf(&classnameFilename, "/dev/pci/%s/class_name", current->d_name);
+        int classnameFiledes = open(classnameFilename, 0);
+
+        fstat(classnameFiledes, &stat);
+        char *classname = malloc(stat.st_size);
+        read(classnameFiledes, classname, stat.st_size);
+        printf("%s (%i): %s\n", classnameFilename, stat.st_size, classname);
+        free(classnameFilename);
+        free(classname);
+        close(classnameFiledes);
+        len -= current->d_reclen;
+        current = ((void *)current) + current->d_reclen;
+    }
+    free(data);
+    close(pcidevs);
+    printf("done\n");
+    while (1) {
+        read(0,&data, 0);
+    }
+
 }

@@ -225,7 +225,4 @@ void main() {
     free(data);
     close(pcidevs);
     printf("done\n");
-    while (1) {
-        read(0, &data, 0);
-    }
 }

@@ -201,5 +201,7 @@ void handleExecSyscall(ProcessThread *thread) {
     process->virtual_memory_entries = NULL;
     File *file = process->container->vfs->type->getFile(process->container->vfs,
                                                         filename);
-    processLoadELF(process, file);
+    if (file) {
+        processLoadELF(process, file);
+    }
 }

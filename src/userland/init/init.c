@@ -16,6 +16,10 @@ int main() {
     close(STDOUT_FILENO);
     open("/dev/serout", 0);
 
+    // reassign STDIN
+    close(STDIN_FILENO);
+    open("/dev/serin", 0);
+
     pid_t pid = fork();
     if (!pid) {
         execv("/bin/serial", NULL);
@@ -37,10 +41,9 @@ int main() {
     printf("Hello World!\n");
     printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
 
-    int fd = open("/dev/serin", 0);
     char buf;
     while (1) {
-        read(fd, &buf, 1);
+        read(STDIN_FILENO, &buf, 1);
         printf("in: %x\n", buf);
         // write(STDOUT_FILENO, &buf, 1);
     }

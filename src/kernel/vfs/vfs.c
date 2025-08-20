@@ -46,16 +46,7 @@ bool read_integer_from_filename(char **filename, uint32_t *data) {
 }
 
 void handleCreateFileSyscall(ProcessThread *thread) {
-    char *mapped_name = mapTemporaryB(
-        getPhysicalAddress(thread->process->memory_information.pageDirectory,
-                           PTR(thread->parameters[0])));
-    uint32_t len = strlen(mapped_name);
-    char *filename = malloc(len + 1);
-    uint32_t position = 0;
-    while (mapped_name[position]) {
-        filename[position] = mapped_name[position];
-        position++;
-    }
+    char *filename = copy_string_from_process(thread->process, PTR(thread->parameters[0]));
 
     uint8_t length = strlen(filename);
     if (length < 2) {

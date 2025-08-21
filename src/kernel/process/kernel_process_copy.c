@@ -3,7 +3,12 @@
 void *copy_from_process_to_kernel(const Process *process, void *threadRead,
                                   const uint32_t bytes_to_transfer) {
     uint8_t *result = malloc(bytes_to_transfer);
-    uint8_t *write = result;
+    memcpy_proc_to_kernel(process, threadRead, result, bytes_to_transfer);
+    return result;
+}
+
+void memcpy_proc_to_kernel(const Process *process, void *threadRead,
+                           uint8_t *write, const uint32_t bytes_to_transfer) {
     uint8_t *read = mapTemporaryA(getPhysicalAddress(
         process->memory_information.pageDirectory, threadRead));
     // just copying byte for byte here
@@ -17,7 +22,6 @@ void *copy_from_process_to_kernel(const Process *process, void *threadRead,
         read++;
         threadRead++;
     }
-    return result;
 }
 
 void copy_from_kernel_to_process(void *read, Process *process,
@@ -30,7 +34,7 @@ void copy_from_kernel_to_process(void *read, Process *process,
             write = mapTemporaryA(getPhysicalAddress(
                 process->memory_information.pageDirectory, threadWrite));
         }
-        *write = *(uint8_t*)read;
+        *write = *(uint8_t *)read;
         write++;
         read++;
         threadWrite++;
@@ -41,8 +45,8 @@ void copy_between_processes(const Process *from_process, void *from,
                             const Process *to_process, void *to,
                             const uint32_t bytes_to_transfer) {
 
-    char *write = getPhysicalAddress(
-        to_process->memory_information.pageDirectory, to);
+    char *write =
+        getPhysicalAddress(to_process->memory_information.pageDirectory, to);
     char *read = getPhysicalAddress(
         from_process->memory_information.pageDirectory, from);
     write = mapTemporaryA(write);

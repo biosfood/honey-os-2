@@ -7,11 +7,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-    void readLoop() {
-    int irq_fd = open("/dev/pic/4", 0);
+void readLoop() {
+    int irq_fd;
+    while ((irq_fd = open("/dev/pic/4", 0)) == -1);
     int write_fd = open("/dev/serin", 0);
 
-    int data =  open("/dev/port/0x3F8", 0);
+    int data = open("/dev/port/0x3F8", 0);
     while (1) {
         uint32_t buf = 0;
         read(data, &buf, 1);
@@ -53,11 +54,10 @@ void main() {
     data = 0x0B;
     write(mcr, &data, 1);
 
-
     while (1) {
         const int32_t count = read(fd, buffer, 1024);
-        for (int i = 0; i < count; ++i) {
-            write(rbr, buffer + i, 1);
+        for (int i = 0; i < count; i++) {
+            write(rbr, &buffer[i], 1);
         }
     }
 }

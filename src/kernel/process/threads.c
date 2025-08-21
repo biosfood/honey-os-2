@@ -16,7 +16,8 @@ void handlePthreadCreateSyscall(ProcessThread *thread) {
     *(void **)(new_thread->esp + 0x4) = &runEnd;
     // TODO: here, this should behave as pthread_exit, the main() thread exit
     // must behave as exit()
+    new_thread->run = true;
     listAdd(&threads_to_process, new_thread);
     thread->returnValue = 0;
-    thread->resume = true;
+    listAdd(&threads_to_process, thread);
 }

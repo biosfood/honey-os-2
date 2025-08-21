@@ -81,27 +81,27 @@ extern uintptr_t handleExecSyscall;
 
 void (*syscallHandlers[])(ProcessThread *) = {
     0,
-    (void *) &handleCreateFunctionSyscall,
-    (void *) &handleRequestSyscall,
     NULL,
     NULL,
     NULL,
-    (void *) &handleGetServiceSyscall,
-    (void *) &handleGetFunctionSyscall,
-    (void *) &handleSubscribeInterruptSyscall,
-    (void *) &handleCreateEventSyscall,
-    (void *) &handleGetEventSyscall,
-    (void *) &handleFireEventSyscall,
-    (void *) &handleSubscribeEventSyscall,
-    (void *) &handleGetServiceIdSyscall,
-    (void *) &handleInsertStringSyscall,
-    (void *) &handleReadStringLengthSyscall,
-    (void *) &handleReadStringSyscall,
-    (void *) &handleDiscardStringSyscall,
     NULL,
-    (void *) &handleLookupSymbolSyscall,
-    (void *) &handleStackContainsSyscall,
-    (void *) &handleAwaitSyscall,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
     NULL,
     (void *) &handleForkSyscall,
     NULL,
@@ -122,23 +122,22 @@ extern uint32_t thread_return_value, thread_cr3, thread_esp;
 extern void (runFunction)();
 
 void processThread(ProcessThread *thread) {
-    thread_return_value = thread->returnValue;
-    thread_esp = U32(thread->esp);
-    thread_cr3 = U32(thread->process->cr3);
-    current_thread = thread;
-    runFunction();
-    thread = current_thread;
+    if (thread->run) {
+        thread_return_value = thread->returnValue;
+        thread_esp = U32(thread->esp);
+        thread_cr3 = U32(thread->process->cr3);
+        current_thread = thread;
+        runFunction();
+        thread = current_thread;
+        if (!thread) {
+            return;
+        }
+        memset(thread->threadProcessingState, 0, 32);
+        thread->run = true;
+    }
 
-    if (thread && thread->function && thread->function < sizeof(syscallHandlers) / sizeof(void *)) {
-        thread->resume = false;
+    if (thread->function && thread->function < sizeof(syscallHandlers) / sizeof(void *)) {
         void (*handler)(ProcessThread *) = syscallHandlers[thread->function];
         handler(thread);
-        if (thread->resume) {
-            listAdd(&threads_to_process, thread);
-        }
-    } else if (thread && !thread->function) {
-        if (thread->resume) {
-            listAdd(&threads_to_process, thread);
-        }
     }
 }

@@ -3,6 +3,8 @@
 //
 #include "kernelfs.h"
 
+#include "process.h"
+
 #include <stddef.h>
 #include <vfs.h>
 
@@ -32,16 +34,21 @@ void kernelFsWrite(KernelFsFile *file, void *data, uint32_t size,
     file->write(file, data, size, offset);
 }
 
-uint32_t kernelFsRead(KernelFsFile *file, void *data, uint32_t size,
-                      uint32_t offset) {
-    return file->read(file, data, size, offset);
+void kernelfs_read(KernelFsFile *file, void *data, uint32_t size,
+                   uint32_t offset, struct ProcessThread *thread,
+                   struct FileDescriptor *descriptor, uint32_t *bytes_read) {
+    if (file->type == FILE_TYPE_FIFO) {
+        fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
+    } else {
+        file->read(file, data, size, offset, thread, descriptor, bytes_read);
+    }
 }
 
 FileSystemType kernelFsType = {
     .getFile = kernelFsGet,
     .create = kernelFsCreate,
     .write = kernelFsWrite,
-    .read = kernelFsRead,
+    .read = kernelfs_read,
 };
 
 uint32_t null_write(KernelFsFile *file, void *data, uint32_t size,
@@ -50,8 +57,10 @@ uint32_t null_write(KernelFsFile *file, void *data, uint32_t size,
 }
 
 uint32_t null_read(KernelFsFile *file, void *data, uint32_t size,
-                   uint32_t offset) {
-    return 0;
+                   uint32_t offset, struct ProcessThread *thread,
+                   struct FileDescriptor *descriptor, uint32_t *bytes_read) {
+    listAdd(&threads_to_process, thread);
+    *bytes_read = 0;
 }
 
 KernelFsFileSystem kernel_fs_file_system = {

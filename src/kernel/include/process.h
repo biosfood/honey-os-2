@@ -80,8 +80,8 @@ typedef struct ProcessThread {
     uint32_t parameters[4];
     uint32_t returnValue;
     void *esp;
-    bool resume;
-    bool avoidReschedule;
+    bool run;
+    uint32_t threadProcessingState[8];
 } ProcessThread;
 
 extern ListElement *threads_to_process;
@@ -89,7 +89,7 @@ extern uint32_t id_counter;
 extern void *runEnd;
 
 extern void processThread(ProcessThread *thread);
-extern ProcessThread *processLoadELF(Process *process, File *elfStart);
+extern ProcessThread *processLoadELF(Process *process, void *file_data);
 extern Process *newProcess(Container *container);
 
 extern char *copy_string_from_process(const Process *process,
@@ -103,6 +103,8 @@ extern void copy_from_kernel_to_process(void *read, Process *process,
 extern void copy_between_processes(const Process *from_process, void *from,
                                    const Process *to_process, void *to,
                                    const uint32_t bytes_to_transfer);
+extern void memcpy_proc_to_kernel(const Process *process, void *threadRead,
+                           uint8_t *write, const uint32_t bytes_to_transfer);
 
 // memory operations
 extern VirtualMemoryEntry *

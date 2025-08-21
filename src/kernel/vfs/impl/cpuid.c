@@ -1,6 +1,8 @@
 //
 // Created by lukas on 6/22/25.
 //
+#include "process.h"
+
 #include <vfs.h>
 
 typedef struct {
@@ -50,7 +52,9 @@ File *cpuid_get(CpuidFileSystem *cpuidfs, char *filename) {
     return file;
 }
 
-uint32_t cpuid_read(File *file, void *data, uint32_t size, uint32_t offset) {
+void cpuid_read(File *file, void *data, uint32_t size, uint32_t offset,
+                struct ProcessThread *thread, struct FileDescriptor *descriptor,
+                uint32_t *bytes_read) {
     if (file == &cpuid_root) {
         FillDirData buf = {.data = data,
                            .size = size,
@@ -59,7 +63,9 @@ uint32_t cpuid_read(File *file, void *data, uint32_t size, uint32_t offset) {
                            .bytes_written = 0};
         fill_dirent(&buf, ".", FILE_TYPE_DIRECTORY);
         fill_dirent(&buf, "..", FILE_TYPE_DIRECTORY);
-        return buf.bytes_written;
+        *bytes_read = buf.bytes_written;
+        listAdd(&threads_to_process, thread);
+        return;
     }
     uint32_t output[4];
     asm volatile("cpuid"
@@ -67,7 +73,8 @@ uint32_t cpuid_read(File *file, void *data, uint32_t size, uint32_t offset) {
                    "=d"(output[1])
                  : "a"(U32(file->data)));
     memcpy(output, data, MIN(size, 16));
-    return MIN(size, 16);
+    *bytes_read = MIN(size, 16);
+    listAdd(&threads_to_process, thread);
 }
 
 uint32_t cpuid_getattr(File *file, struct stat *buf) {

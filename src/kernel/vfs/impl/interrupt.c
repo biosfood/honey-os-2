@@ -1,3 +1,5 @@
+#include "process.h"
+
 #include <vfs.h>
 
 FileSystem interrupt_file_system;
@@ -44,15 +46,23 @@ int interrupt_getattr(File *file, struct stat *s) {
     }
 }
 
-int interrupt_read(File *file, void *data, uint32_t size, uint32_t offset) {
-    // file definietly is cpuid_root
-    FillDirData buf = {.data = data,
-                       .size = size,
-                       .offset = offset,
-                       .current_offset = 0,
-                       .bytes_written = 0};
-    fill_dirent(&buf, ".", FILE_TYPE_DIRECTORY);
-    fill_dirent(&buf, "..", FILE_TYPE_DIRECTORY);
+void interrupt_read(File *file, void *data, uint32_t size,
+                   uint32_t offset, struct ProcessThread *thread,
+                   struct FileDescriptor *descriptor, uint32_t *bytes_read) {
+    if (file->type == FILE_TYPE_FIFO) {
+        fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
+    } else {
+        // file definietly is cpuid_root
+        FillDirData buf = {.data = data,
+                           .size = size,
+                           .offset = offset,
+                           .current_offset = 0,
+                           .bytes_written = 0};
+        fill_dirent(&buf, ".", FILE_TYPE_DIRECTORY);
+        fill_dirent(&buf, "..", FILE_TYPE_DIRECTORY);
+        *bytes_read = buf.bytes_written;
+        listAdd(&threads_to_process, thread);
+    }
 }
 
 FileSystemType interrupt_file_system_type = {

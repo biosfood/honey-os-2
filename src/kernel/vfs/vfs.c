@@ -46,7 +46,8 @@ bool read_integer_from_filename(char **filename, uint32_t *data) {
 }
 
 void handleCreateFileSyscall(ProcessThread *thread) {
-    char *filename = copy_string_from_process(thread->process, PTR(thread->parameters[0]));
+    char *filename =
+        copy_string_from_process(thread->process, PTR(thread->parameters[0]));
 
     uint8_t length = strlen(filename);
     if (length < 2) {
@@ -84,7 +85,7 @@ void handleCreateFileSyscall(ProcessThread *thread) {
     }
     thread->returnValue = 0;
 end:
-    thread->resume = true;
+    listAdd(&threads_to_process, thread);
 }
 
 FileDescriptor *allocateFileDescriptor(Process *process) {
@@ -126,7 +127,7 @@ void handleOpenSyscall(ProcessThread *thread) {
         copy_string_from_process(thread->process, PTR(thread->parameters[0]));
     File *file = thread->process->container->vfs->type->getFile(
         thread->process->container->vfs, filename);
-    thread->resume = true;
+    listAdd(&threads_to_process, thread);
     if (file == NULL) {
         if (thread->parameters[1] & O_CREAT) {
             char *directoryFileName = malloc(strlen(filename));
@@ -169,14 +170,14 @@ void handleCloseSyscall(ProcessThread *thread) {
         ;
     if (file_descriptor == NULL) {
         thread->returnValue = -1;
-        thread->resume = true;
+        listAdd(&threads_to_process, thread);
         return;
     }
     listRemoveValue(&thread->process->openFileHandles, file_descriptor);
     listRemoveValue(&file_descriptor->file->file_descriptors, file_descriptor);
     free(file_descriptor);
     thread->returnValue = 0;
-    thread->resume = true;
+    listAdd(&threads_to_process, thread);
 }
 
 void handleStatSyscall(ProcessThread *thread) {
@@ -189,7 +190,7 @@ void handleStatSyscall(ProcessThread *thread) {
         ;
     if (file_descriptor == NULL) {
         thread->returnValue = -1;
-        thread->resume = true;
+        listAdd(&threads_to_process, thread);
         return;
     }
     struct stat buf;
@@ -197,6 +198,6 @@ void handleStatSyscall(ProcessThread *thread) {
                                                       &buf);
     copy_from_kernel_to_process(
         &buf, thread->process, PTR(thread->parameters[1]), sizeof(struct stat));
-    thread->resume = true;
+    listAdd(&threads_to_process, thread);
     thread->returnValue = 0;
 }

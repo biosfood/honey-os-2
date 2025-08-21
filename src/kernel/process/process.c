@@ -12,17 +12,18 @@ void handleWriteSyscall(ProcessThread *thread) {
         ;
     if (file_descriptor == NULL) {
         thread->returnValue = -1;
-        thread->resume = true;
+        listAdd(&threads_to_process, thread);
         return;
     }
     if (thread->parameters[2] == 0) {
         thread->returnValue = 0;
-        thread->resume = true;
+        listAdd(&threads_to_process, thread);
         return;
     }
     if (file_descriptor->file->type == FILE_TYPE_FIFO) {
-        fifo_write(file_descriptor->file, thread->process, PTR(thread->parameters[1]), thread->parameters[2]);
-        thread->resume = true;
+        fifo_write(file_descriptor->file, thread->process,
+                   PTR(thread->parameters[1]), thread->parameters[2]);
+        listAdd(&threads_to_process, thread);
     } else {
         void *data = copy_from_process_to_kernel(
             thread->process, PTR(thread->parameters[1]), thread->parameters[2]);
@@ -32,44 +33,7 @@ void handleWriteSyscall(ProcessThread *thread) {
                 thread->parameters[3]);
         free(data);
         thread->returnValue = bytes_transfered;
-        thread->resume = true;
-    }
-}
-
-void handleReadSyscall(ProcessThread *thread) {
-    FileDescriptor *file_descriptor = NULL;
-    foreach (thread->process->openFileHandles, FileDescriptor *, descriptor, {
-        if (thread->parameters[0] == descriptor->id) {
-            file_descriptor = descriptor;
-        }
-    })
-        ;
-    if (file_descriptor == NULL) {
-        thread->returnValue = -1;
-        thread->resume = true;
-        return;
-    }
-    if (thread->parameters[2] == 0) {
-        thread->returnValue = 0;
-        thread->resume = true;
-        return;
-    }
-    if (file_descriptor->file->type == FILE_TYPE_FIFO) {
-        fifo_read(thread, &file_descriptor->fifo_data);
-    } else {
-        // TODO: this is horribly inefficient
-        void *data = malloc(thread->parameters[2]);
-        uint32_t bytes_to_transfer =
-            file_descriptor->file->file_system->type->read(
-                file_descriptor->file, data, thread->parameters[2],
-                thread->parameters[3]);
-        bytes_to_transfer = MIN(bytes_to_transfer, thread->parameters[2]);
-        copy_from_kernel_to_process(data, thread->process,
-                                    PTR(thread->parameters[1]),
-                                    bytes_to_transfer);
-        free(data);
-        thread->resume = true;
-        thread->returnValue = bytes_to_transfer;
+        listAdd(&threads_to_process, thread);
     }
 }
 
@@ -102,6 +66,7 @@ void handleForkSyscall(ProcessThread *thread) {
     listAdd(&(process->threads), new_thread);
     new_thread->function = 0;
     new_thread->esp = thread->esp;
+    new_thread->run = true;
 
     foreach (
         thread->process->virtual_memory_entries, VirtualMemoryEntry *,
@@ -170,14 +135,24 @@ void handleForkSyscall(ProcessThread *thread) {
     listAdd(&threads_to_process, new_thread);
 
     thread->returnValue = process->id;
-    thread->resume = true;
+    listAdd(&threads_to_process, thread);
 }
 
 void handleExecSyscall(ProcessThread *thread) {
+    FileDescriptor *file_descriptor = NULL;
+    foreach (thread->process->openFileHandles, FileDescriptor *, descriptor, {
+        if (thread->parameters[0] == descriptor->id) {
+            file_descriptor = descriptor;
+        }
+    })
+        ;
+    if (file_descriptor == NULL) {
+        thread->returnValue = -1;
+        listAdd(&threads_to_process, thread);
+        return;
+    }
     Process *process = thread->process;
     // TODO: arguments transfer
-    char *filename =
-        copy_string_from_process(process, PTR(thread->parameters[0]));
     listClear(process->threads);
     process->threads = NULL;
 
@@ -199,9 +174,12 @@ void handleExecSyscall(ProcessThread *thread) {
         ;
     listClear(process->virtual_memory_entries);
     process->virtual_memory_entries = NULL;
-    File *file = process->container->vfs->type->getFile(process->container->vfs,
-                                                        filename);
-    if (file) {
-        processLoadELF(process, file);
-    }
+    struct stat s;
+    file_descriptor->file->file_system->type->getattr(file_descriptor->file, &s);
+    void *file_data = malloc(s.st_size);
+    // for now, just assume the file system is RAMfs
+    uint32_t bytes_read;
+    file_descriptor->file->file_system->type->read(file_descriptor->file, file_data, s.st_size, 0, NULL, file_descriptor, &bytes_read);
+    processLoadELF(process, file_data);
+    free(file_data);
 }

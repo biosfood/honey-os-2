@@ -11,7 +11,7 @@
 #include <vfs.h>
 
 AllocationBlock *allocationData[12];
-
+ListElement *threads_to_process;
 uint32_t id_counter = 1;
 
 Container *newContainer(FileSystem *fs) {
@@ -27,7 +27,15 @@ Container *newContainer(FileSystem *fs) {
     Process *init_process = newProcess(container);
 
     File *init_file = fs->type->getFile((void *)fs, "/bin/init");
-    processLoadELF(init_process, init_file);
+
+    struct stat s;
+    init_file->file_system->type->getattr(init_file, &s);
+    void *file_data = malloc(s.st_size);
+    // for now, just assume the file system is RAMfs
+    uint32_t bytes_read;
+    init_file->file_system->type->read(init_file, file_data, s.st_size, 0, NULL, NULL, &bytes_read);
+    processLoadELF(init_process, file_data);
+    free(file_data);
 
     File *nulldev = fs->type->getFile((void *)fs, "/kernel/null");
 

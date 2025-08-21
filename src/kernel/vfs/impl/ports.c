@@ -2,6 +2,8 @@
 // Created by lukas on 6/23/25.
 //
 
+#include "process.h"
+
 #include <vfs.h>
 
 ListElement *port_files;
@@ -47,7 +49,9 @@ File *port_get_file(FileSystem *file_system, const char *filename) {
     return file;
 }
 
-uint32_t port_read(File *file, void *data, uint32_t size, uint32_t offset) {
+void port_read(File *file, void *data, uint32_t size, uint32_t offset,
+                   struct ProcessThread *thread,
+                   struct FileDescriptor *descriptor, uint32_t *bytes_read) {
     if (file == &port_root) {
         FillDirData buf = {.data = data,
                            .size = size,
@@ -56,10 +60,10 @@ uint32_t port_read(File *file, void *data, uint32_t size, uint32_t offset) {
                            .bytes_written = 0};
         fill_dirent(&buf, ".", FILE_TYPE_DIRECTORY);
         fill_dirent(&buf, "..", FILE_TYPE_DIRECTORY);
-        return buf.bytes_written;
+        *bytes_read = buf.bytes_written;
     }
     uint32_t result;
-    uint16_t port = (uint16_t) U32(file->data);
+    uint16_t port = (uint16_t)U32(file->data);
     switch (size) {
     case 1:
         asm("in %%dx, %%al" : "=a"(result) : "d"(port));
@@ -71,17 +75,24 @@ uint32_t port_read(File *file, void *data, uint32_t size, uint32_t offset) {
         asm("in %%dx, %%eax" : "=a"(result) : "d"(port));
         break;
     default:
-        return 0;
+        *bytes_read = 0;
+        if (thread) {
+            listAdd(&threads_to_process, thread);
+        }
+        return;
     }
-    memcpy(&result, data, MIN(4,size));
-    return MIN(4,size);
+    memcpy(&result, data, MIN(4, size));
+    if (thread) {
+        listAdd(&threads_to_process, thread);
+    }
+    *bytes_read = MIN(4, size);
 }
 
 uint32_t port_write(File *file, void *data, uint32_t size, uint32_t offset) {
     if (file == &port_root) {
         return 0;
     }
-    uint16_t port = (uint16_t) U32(file->data);
+    uint16_t port = (uint16_t)U32(file->data);
     switch (size) {
     case 1:
         asm("out %0, %1" : : "a"(*(uint8_t *)data), "Nd"(port));

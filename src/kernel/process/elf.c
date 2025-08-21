@@ -38,12 +38,7 @@ extern void *functionsEnd;
 PhysicalMemoryEntry kernel_functions_physical = {.physical = 0, 4, 0};
 
 
-ProcessThread *processLoadELF(Process *process, File *file) {
-    struct stat s;
-    file->file_system->type->getattr(file, &s);
-    void *file_data = malloc(s.st_size);
-    file->file_system->type->read(file, file_data, s.st_size, 0);
-
+ProcessThread *processLoadELF(Process *process, void *file_data) {
     ElfHeader *header = file_data;
     ProgramHeader *programHeader =
         file_data + header->programHeaderTablePosition;
@@ -103,7 +98,7 @@ ProcessThread *processLoadELF(Process *process, File *file) {
                 ;
         })
         ;
+    thread->run = true;
     listAdd(&threads_to_process, thread);
-    free(file_data);
     return thread;
 }

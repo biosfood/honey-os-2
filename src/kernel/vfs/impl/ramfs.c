@@ -3,6 +3,9 @@
 //
 
 #include "ramfs.h"
+
+#include "process.h"
+
 #include <util.h>
 
 #include <dirent.h>
@@ -110,16 +113,21 @@ void fill_dirent(FillDirData *buf, char *name, int file_type) {
     buf->bytes_written += copy_len;
 }
 
-uint32_t ramFsRead(RamFsFile *file, void *data, uint32_t size,
-                   uint32_t offset) {
+void ramfs_read(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
+                struct ProcessThread *thread, struct FileDescriptor *descriptor,
+                uint32_t *bytes_read) {
     if (file->type == FILE_TYPE_FILE) {
         uint32_t bytes_to_read =
             MAX(0, MIN((int32_t)size, (int32_t)(file->size - offset)));
         if (!bytes_to_read) {
-            return 0;
+            *bytes_read = 0;
+        } else {
+            memcpy(file->data + offset, data, size);
+            *bytes_read = bytes_to_read;
         }
-        memcpy(file->data + offset, data, size);
-        return bytes_to_read;
+        if (thread) {
+            listAdd(&threads_to_process, thread);
+        }
     }
     if (file->type == FILE_TYPE_DIRECTORY) {
         FillDirData buf = {.data = data,
@@ -130,7 +138,13 @@ uint32_t ramFsRead(RamFsFile *file, void *data, uint32_t size,
         foreach (file->data, RamFsFile *, child,
                  { fill_dirent(&buf, child->name, file->type); })
             ;
-        return buf.bytes_written;
+        *bytes_read = buf.bytes_written;
+        if (thread) {
+            listAdd(&threads_to_process, thread);
+        }
+    }
+    if (file->type == FILE_TYPE_FIFO) {
+        fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
     }
 }
 
@@ -151,7 +165,7 @@ FileSystemType ramfsType = {
     .getFile = ramFsGet,
     .create = ramFsCreate,
     .write = ramFsWrite,
-    .read = ramFsRead,
+    .read = ramfs_read,
     .getattr = ramFsGetattr,
 };
 

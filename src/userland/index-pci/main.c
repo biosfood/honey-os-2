@@ -184,10 +184,9 @@ void initializePci() {
 void main() {
     config_address_fd = open("/dev/port/3320", 0);
     config_data_fd = open("/dev/port/3324", 0);
-    printf("indexing PCI bus... ");
+    printf("indexing PCI bus...\n");
     mkdir("/dev/pci", 0);
     initializePci();
-    printf("done.\n");
 
     int pcidevs = open("/dev/pci", 0);
     struct stat stat;
@@ -224,5 +223,4 @@ void main() {
     }
     free(data);
     close(pcidevs);
-    printf("done\n");
 }

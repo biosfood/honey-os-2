@@ -24,7 +24,8 @@ ssize_t pwrite(const int filedes, void *buffer, size_t nbyte, off_t offset) {
 int close(int fildes) { return (int)syscall(SYS_CLOSE, fildes, 0, 0, 0); }
 
 int execv(const char *path, char *const argv[]) {
-    return (int)syscall(SYS_EXEC, U32(path), 0, 0, 0);
+    int fd = open(path, 0);
+    return (int)syscall(SYS_EXEC, fd, 0, 0, 0);
 }
 
 pid_t fork() {

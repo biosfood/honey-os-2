@@ -92,7 +92,8 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
             File *file = file_system->type->create(
                 folderFile, header->fileName + lastSlashPosition + 1,
                 FILE_TYPE_FILE);
-            file_system->type->write(file, currentPosition + 512, fileSize, 0);
+            uint32_t bytes_written;
+            file_system->type->write(file, currentPosition + 512, fileSize, 0, NULL, NULL, &bytes_written);
             currentPosition += 512 + ((fileSize / 512) + 1) * 512;
             continue;
         }

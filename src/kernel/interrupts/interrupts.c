@@ -37,7 +37,8 @@ void onInterrupt(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
     if (!file->data) {
         return;
     }
-    fifo_write(file, NULL, &data, 1);
+    uint32_t bytes_written;
+    fifo_write(file, &data, 1, &bytes_written, NULL);
     return;
     // TODO: make sure there actually is enough space on the stack here....
     uint32_t newStack[] = {

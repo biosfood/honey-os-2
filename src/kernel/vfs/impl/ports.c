@@ -50,8 +50,8 @@ File *port_get_file(FileSystem *file_system, const char *filename) {
 }
 
 void port_read(File *file, void *data, uint32_t size, uint32_t offset,
-                   struct ProcessThread *thread,
-                   struct FileDescriptor *descriptor, uint32_t *bytes_read) {
+               struct ProcessThread *thread, struct FileDescriptor *descriptor,
+               uint32_t *bytes_read) {
     if (file == &port_root) {
         FillDirData buf = {.data = data,
                            .size = size,
@@ -88,9 +88,12 @@ void port_read(File *file, void *data, uint32_t size, uint32_t offset,
     *bytes_read = MIN(4, size);
 }
 
-uint32_t port_write(File *file, void *data, uint32_t size, uint32_t offset) {
+void port_write(File *file, void *data, uint32_t size, uint32_t offset,
+                struct ProcessThread *thread, struct FileDescriptor *descriptor,
+                uint32_t *bytes_written) {
     if (file == &port_root) {
-        return 0;
+        *bytes_written = 0;
+        goto end;
     }
     uint16_t port = (uint16_t)U32(file->data);
     switch (size) {
@@ -104,9 +107,12 @@ uint32_t port_write(File *file, void *data, uint32_t size, uint32_t offset) {
         asm("out %0, %1" : : "a"(*(uint32_t *)data), "Nd"(port));
         break;
     default:
-        return 0;
+        *bytes_written = 0;
+        goto end;
     }
-    return size;
+    *bytes_written = size;
+end:
+    listAdd(&threads_to_process, thread);
 }
 
 uint32_t port_getattr(File *file, struct stat *buf) {

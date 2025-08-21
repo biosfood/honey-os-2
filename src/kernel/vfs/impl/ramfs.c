@@ -75,7 +75,13 @@ File *ramFsCreate(File *directory, char *name, enum FileType type) {
     return (void *)file;
 }
 
-void ramFsWrite(RamFsFile *file, void *data, uint32_t size, uint32_t offset) {
+void ramfs_write(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
+                 struct ProcessThread *thread,
+                 struct FileDescriptor *descriptor, uint32_t *bytes_written) {
+    if (file->type == FILE_TYPE_FIFO) {
+        fifo_write((File *)file, data, size, bytes_written, thread);
+        return;
+    }
     // just completely overwrites the file for now...
     if (file->data) {
         free(file->data);
@@ -83,6 +89,9 @@ void ramFsWrite(RamFsFile *file, void *data, uint32_t size, uint32_t offset) {
     file->data = malloc(size + offset);
     file->size = size + offset;
     memcpy(data, file->data + offset, size);
+    if (thread) {
+        listAdd(&threads_to_process, thread);
+    }
 }
 
 void fill_dirent(FillDirData *buf, char *name, int file_type) {
@@ -164,7 +173,7 @@ uint32_t ramFsGetattr(RamFsFile *file, struct stat *buf) {
 FileSystemType ramfsType = {
     .getFile = ramFsGet,
     .create = ramFsCreate,
-    .write = ramFsWrite,
+    .write = ramfs_write,
     .read = ramfs_read,
     .getattr = ramFsGetattr,
 };

@@ -26,7 +26,8 @@ typedef struct FileDescriptorOperations {
 
 typedef struct FiFoData {
     ListElement *queue;
-    // if thread != null, we are blocked on read and should write to write_data, etc.
+    // if thread != null, we are blocked on read and should write to write_data,
+    // etc.
     struct ProcessThread *thread;
     void *write_data;
     uint32_t len;
@@ -71,7 +72,9 @@ typedef struct File {
 typedef struct {
     File *(*getFile)(struct FileSystem *file_system, char *path);
     File *(*create)(File *file, char *path, enum FileType type);
-    uint32_t (*write)(File *file, void *data, uint32_t size, uint32_t offset);
+    void (*write)(File *file, void *data, uint32_t size, uint32_t offset,
+                  struct ProcessThread *thread,
+                  struct FileDescriptor *descriptor, uint32_t *bytes_written);
     void (*read)(File *file, void *data, uint32_t size, uint32_t offset,
                  struct ProcessThread *thread,
                  struct FileDescriptor *descriptor, uint32_t *bytes_read);
@@ -105,8 +108,8 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
 extern FileDescriptor *allocateFileDescriptor(struct Process *process);
 extern void fill_dirent(FillDirData *buf, char *name, int file_type);
 
-extern void fifo_write(File *file, struct Process *process,
-                       void *process_address, uint32_t size);
+void fifo_write(File *file, void *write_data, uint32_t len,
+                uint32_t *bytes_written, struct ProcessThread *thread);
 extern void fifo_read(void *write_data, uint32_t len, FiFoData *fifo,
                       struct ProcessThread *thread, uint32_t *bytes_read);
 

@@ -2,41 +2,6 @@
 #include <stddef.h>
 #include <vfs.h>
 
-void handleWriteSyscall(ProcessThread *thread) {
-    FileDescriptor *file_descriptor = NULL;
-    foreach (thread->process->openFileHandles, FileDescriptor *, descriptor, {
-        if (thread->parameters[0] == descriptor->id) {
-            file_descriptor = descriptor;
-        }
-    })
-        ;
-    if (file_descriptor == NULL) {
-        thread->returnValue = -1;
-        listAdd(&threads_to_process, thread);
-        return;
-    }
-    if (thread->parameters[2] == 0) {
-        thread->returnValue = 0;
-        listAdd(&threads_to_process, thread);
-        return;
-    }
-    if (file_descriptor->file->type == FILE_TYPE_FIFO) {
-        fifo_write(file_descriptor->file, thread->process,
-                   PTR(thread->parameters[1]), thread->parameters[2]);
-        listAdd(&threads_to_process, thread);
-    } else {
-        void *data = copy_from_process_to_kernel(
-            thread->process, PTR(thread->parameters[1]), thread->parameters[2]);
-        const uint32_t bytes_transfered =
-            file_descriptor->file->file_system->type->write(
-                file_descriptor->file, data, thread->parameters[2],
-                thread->parameters[3]);
-        free(data);
-        thread->returnValue = bytes_transfered;
-        listAdd(&threads_to_process, thread);
-    }
-}
-
 Process *newProcess(Container *container) {
     Process *process = malloc(sizeof(Process));
     process->id = id_counter++;

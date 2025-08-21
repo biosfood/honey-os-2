@@ -29,9 +29,12 @@ File *kernelFsCreate(File *directory, char *name, enum FileType type) {
     return NULL;
 }
 
-void kernelFsWrite(KernelFsFile *file, void *data, uint32_t size,
-                   uint32_t offset) {
+void kernelfs_write(KernelFsFile *file, void *data, uint32_t size, uint32_t offset,
+                struct ProcessThread *thread, struct FileDescriptor *descriptor,
+                uint32_t *bytes_written) {
     file->write(file, data, size, offset);
+    *bytes_written = 0;
+    listAdd(&threads_to_process, thread);
 }
 
 void kernelfs_read(KernelFsFile *file, void *data, uint32_t size,
@@ -47,7 +50,7 @@ void kernelfs_read(KernelFsFile *file, void *data, uint32_t size,
 FileSystemType kernelFsType = {
     .getFile = kernelFsGet,
     .create = kernelFsCreate,
-    .write = kernelFsWrite,
+    .write = kernelfs_write,
     .read = kernelfs_read,
 };
 

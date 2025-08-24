@@ -46,11 +46,11 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
             // TODO: handle no slashes here
             File *folderFile = NULL;
             if (lastSlashPosition == 0) {
-                folderFile = file_system->type->getFile(file_system, "/");
+                folderFile = file_system->type->getFile(file_system, "/", NULL);
             } else {
                 header->fileName[lastSlashPosition] = 0;
                 folderFile =
-                    file_system->type->getFile(file_system, header->fileName);
+                    file_system->type->getFile(file_system, header->fileName, NULL);
                 header->fileName[lastSlashPosition] = '/';
             }
             if (folderFile->type != FILE_TYPE_DIRECTORY) {
@@ -79,11 +79,11 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
             // TODO: handle no slashes here
             File *folderFile = NULL;
             if (lastSlashPosition == 0) {
-                folderFile = file_system->type->getFile(file_system, "/");
+                folderFile = file_system->type->getFile(file_system, "/", NULL);
             } else {
                 header->fileName[lastSlashPosition] = 0;
                 folderFile =
-                    file_system->type->getFile(file_system, header->fileName);
+                    file_system->type->getFile(file_system, header->fileName, NULL);
                 header->fileName[lastSlashPosition] = '/';
             }
             if (folderFile->type != FILE_TYPE_DIRECTORY) {

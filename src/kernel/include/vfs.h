@@ -14,17 +14,6 @@ struct FileDescriptor;
 struct Process;
 struct Container;
 
-// operations that can be done on a file
-typedef struct FileDescriptorOperations {
-    // members of this struct are all allowed to be NULL, indicating that the
-    // specified operation is not supported.
-    int (*open)(struct FileDescriptor *file);
-    int (*read)(struct FileDescriptor *file, uint32_t count);
-    int (*write)(struct FileDescriptor *file, uint32_t count);
-    struct File *(*lookup)(struct FileSystem *file_system, struct File *file,
-                           char *name);
-} FileDescriptorOperations;
-
 typedef struct FiFoData {
     ListElement *queue;
     // if thread != null, we are blocked on read and should write to write_data,
@@ -37,7 +26,6 @@ typedef struct FiFoData {
 
 typedef struct FileDescriptor {
     uint32_t id;
-    FileDescriptorOperations *operations;
     struct File *file;
     struct Process *process;
     uint32_t offset;

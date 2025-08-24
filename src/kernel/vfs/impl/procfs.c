@@ -60,7 +60,7 @@ void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
     listAdd(&threads_to_process, thread);
 }
 
-uint32_t procfs_getattr(ProcessFile *file, struct stat *stbuf) {
+void procfs_getattr(ProcessFile *file, struct stat *stbuf) {
     stbuf->st_size = file->length;
 }
 
@@ -98,5 +98,5 @@ void initialize_proc_files(Process *process, char *exe) {
     process->process_files[PROC_FILE_EXECUTABLE].data = exe;
     process->process_files[PROC_FILE_EXECUTABLE].file_type =
         PROC_FILE_EXECUTABLE;
-    process->process_files[PROC_FILE_EXECUTABLE].type = FILE_TYPE_FILE;
+    process->process_files[PROC_FILE_EXECUTABLE].type = FILE_TYPE_SYMLINK;
 }

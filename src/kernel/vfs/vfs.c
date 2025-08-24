@@ -66,11 +66,11 @@ void handleCreateFileSyscall(ProcessThread *thread) {
     File *folderFile = NULL;
     if (lastSlashPosition == 0) {
         folderFile = thread->process->container->vfs->type->getFile(
-            thread->process->container->vfs, "/");
+            thread->process->container->vfs, "/", thread);
     } else {
         filename[lastSlashPosition] = 0;
         folderFile = thread->process->container->vfs->type->getFile(
-            thread->process->container->vfs, filename);
+            thread->process->container->vfs, filename, thread);
         filename[lastSlashPosition] = '/';
     }
     if (!folderFile) {
@@ -126,7 +126,7 @@ void handleOpenSyscall(ProcessThread *thread) {
     char *filename =
         copy_string_from_process(thread->process, PTR(thread->parameters[0]));
     File *file = thread->process->container->vfs->type->getFile(
-        thread->process->container->vfs, filename);
+        thread->process->container->vfs, filename, thread);
     listAdd(&threads_to_process, thread);
     if (file == NULL) {
         if (thread->parameters[1] & O_CREAT) {
@@ -139,7 +139,7 @@ void handleOpenSyscall(ProcessThread *thread) {
             }
             directoryFileName[lastSlashPosition] = 0;
             File *dir = thread->process->container->vfs->type->getFile(
-                thread->process->container->vfs, directoryFileName);
+                thread->process->container->vfs, directoryFileName, thread);
             if (dir->type != FILE_TYPE_DIRECTORY) {
                 thread->returnValue = -1;
                 return;

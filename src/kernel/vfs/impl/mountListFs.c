@@ -20,7 +20,7 @@ void mount(FileSystem *mount_list_file_system, FileSystem *file_system,
     listAdd(&mount_list_file_system->data, mount);
 }
 
-File *mountlist_get_file(FileSystem *file_system, char *path) {
+File *mountlist_get_file(FileSystem *file_system, char *path, struct ProcessThread *thread) {
     Mount *mount = NULL;
     uint32_t current_match_length = 0;
     foreach (file_system->data, Mount *, current_mount, {
@@ -82,7 +82,7 @@ File *mountlist_get_file(FileSystem *file_system, char *path) {
     //     }
     //     break;
     // }
-    File *file = mount->file_system->type->getFile(mount->file_system, realpath);
+    File *file = mount->file_system->type->getFile(mount->file_system, realpath, thread);
     free(realpath);
     return file;
 }

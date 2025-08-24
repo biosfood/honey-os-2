@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <vfs.h>
 
-Process *newProcess(Container *container) {
+Process *newProcess(Container *container, char *exe) {
     Process *process = malloc(sizeof(Process));
     process->id = id_counter++;
     process->container = container;
@@ -12,11 +12,17 @@ Process *newProcess(Container *container) {
         getPhysicalAddressKernel(process->memory_information.pageDirectory);
     process->threads = NULL;
     process->openFileHandles = NULL;
+
+    initialize_proc_files(process, exe);
+
     return process;
 }
 
 void handleForkSyscall(ProcessThread *thread) {
-    Process *process = newProcess(thread->process->container);
+    Process *process = newProcess(
+        thread->process->container,
+        combineStrings(
+            "", thread->process->process_files[PROC_FILE_EXECUTABLE].data));
     memset(&process->memory_information, 0, sizeof(PagingInfo));
     process->memory_information.pageDirectory = malloc(0x1000);
     process->cr3 =
@@ -140,11 +146,14 @@ void handleExecSyscall(ProcessThread *thread) {
     listClear(process->virtual_memory_entries);
     process->virtual_memory_entries = NULL;
     struct stat s;
-    file_descriptor->file->file_system->type->getattr(file_descriptor->file, &s);
+    file_descriptor->file->file_system->type->getattr(file_descriptor->file,
+                                                      &s);
     void *file_data = malloc(s.st_size);
     // for now, just assume the file system is RAMfs
     uint32_t bytes_read;
-    file_descriptor->file->file_system->type->read(file_descriptor->file, file_data, s.st_size, 0, NULL, file_descriptor, &bytes_read);
+    file_descriptor->file->file_system->type->read(
+        file_descriptor->file, file_data, s.st_size, 0, NULL, file_descriptor,
+        &bytes_read);
     processLoadELF(process, file_data);
     free(file_data);
 }

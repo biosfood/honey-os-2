@@ -20,10 +20,12 @@ typedef struct {
     uint32_t size;
 } VFSFile;
 struct DirectoryFile;
-typedef struct {
+
+typedef struct Container {
     uint32_t id;
     ListElement *processes;
     FileSystem *vfs;
+    FileSystem *procfs;
 } Container;
 
 enum MemoryType {
@@ -66,6 +68,7 @@ typedef struct Process {
     void *cr3;
     ListElement *openFileHandles;
     ListElement *virtual_memory_entries;
+    ProcessFile process_files[PROC_FILE_MAX];
 } Process;
 
 typedef struct ProcessThread {
@@ -90,7 +93,7 @@ extern void *runEnd;
 
 extern void processThread(ProcessThread *thread);
 extern ProcessThread *processLoadELF(Process *process, void *file_data);
-extern Process *newProcess(Container *container);
+extern Process *newProcess(Container *container, char *exe);
 
 extern char *copy_string_from_process(const Process *process,
                                       const void *const from);

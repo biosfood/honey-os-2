@@ -12,6 +12,7 @@ struct FileSystem;
 struct File;
 struct FileDescriptor;
 struct Process;
+struct Container;
 
 // operations that can be done on a file
 typedef struct FileDescriptorOperations {
@@ -70,7 +71,8 @@ typedef struct File {
 } File;
 
 typedef struct {
-    File *(*getFile)(struct FileSystem *file_system, char *path);
+    File *(*getFile)(struct FileSystem *file_system, char *path,
+                     struct ProcessThread *thread);
     File *(*create)(File *file, char *path, enum FileType type);
     void (*write)(File *file, void *data, uint32_t size, uint32_t offset,
                   struct ProcessThread *thread,
@@ -103,6 +105,10 @@ typedef struct {
 
 extern FileSystem *createRamfs();
 extern FileSystem *createKernelFs();
+extern FileSystem *create_process_fs(struct Container *container);
+
+extern void initialize_proc_files(struct Process *process, char *exe);
+
 void processInitrd(void *fileData, uint32_t tarFileSize,
                    FileSystem *file_system);
 extern FileDescriptor *allocateFileDescriptor(struct Process *process);
@@ -114,5 +120,23 @@ extern void fifo_read(void *write_data, uint32_t len, FiFoData *fifo,
                       struct ProcessThread *thread, uint32_t *bytes_read);
 
 extern bool read_integer_from_filename(char **filename, uint32_t *data);
+
+enum ProcFiles {
+    PROC_FILE_ROOT,
+    PROC_FILE_SIGNAL,
+    PROC_FILE_PIPEIN,
+    PROC_FILE_EXECUTABLE,
+    PROC_FILE_WORKDIR,
+
+    // workaround to statically get the number of files
+    PROC_FILE_MAX
+};
+
+typedef struct {
+    File;
+    struct Process *process;
+    enum ProcFiles file_type;
+    uint32_t length;
+} ProcessFile;
 
 #endif // VFS_H

@@ -19,14 +19,19 @@ Container *newContainer(FileSystem *fs) {
     container->id = id_counter++;
     container->processes = NULL;
     container->vfs = fs;
+
+    FileSystem *proc_fs = create_process_fs(container);
+    mount(fs, proc_fs, "/proc/", "/");
+    container->procfs = proc_fs;
+
     // TODO: container-owned mounts?
     // I may want a special kernel file system for showing process information,
     // etc. at /proc this will provide a simple way for the kernel to exchange
     // information with user processes
 
-    Process *init_process = newProcess(container);
+    Process *init_process = newProcess(container, "/bin/init");
 
-    File *init_file = fs->type->getFile((void *)fs, "/bin/init");
+    File *init_file = fs->type->getFile((void *)fs, "/bin/init", NULL);
 
     struct stat s;
     init_file->file_system->type->getattr(init_file, &s);
@@ -37,7 +42,7 @@ Container *newContainer(FileSystem *fs) {
     processLoadELF(init_process, file_data);
     free(file_data);
 
-    File *nulldev = fs->type->getFile((void *)fs, "/kernel/null");
+    File *nulldev = fs->type->getFile((void *)fs, "/kernel/null", NULL);
 
     // standard IO streams opened before program starts
     FileDescriptor *stdin = allocateFileDescriptor(init_process);

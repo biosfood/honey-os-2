@@ -24,6 +24,15 @@ int main() {
     if (!pid) {
         execv("/bin/serial", NULL);
     }
+    char *filename;
+    asprintf(&filename, "/proc/%i/exe", pid);
+    int fd = open(filename, 0);
+    struct stat stat;
+    fstat(fd, &stat);
+    char *data = malloc(stat.st_size);
+    read(fd, data, stat.st_size);
+    printf("%s: %s\n", filename, data);
+
     pid = fork();
     if (!pid) {
         execv("/bin/pic", NULL);

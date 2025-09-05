@@ -12,26 +12,28 @@
 // in the kernel memory. directories store their children in a tree-like
 // structure.
 
-File *kernelFsGet(KernelFsFileSystem *file_system, char *path) {
+FileOperationStatus kernelfs_get(KernelFsFileSystem *file_system, char *path,
+                  ProcessThread *thread, File **result, void **scratchpad) {
     if (stringEquals(path, "/")) {
-        return (void *)&file_system->rootDir;
+        *result = (void *)&file_system->rootDir;
+    } else if (stringEquals(path, "/mem")) {
+        *result = (void *)&file_system->mem;
+    } else if (stringEquals(path, "/null")) {
+        *result = (void *)&file_system->null;
+    } else {
+        *result = NULL;
     }
-    if (stringEquals(path, "/mem")) {
-        return (void *)&file_system->mem;
-    }
-    if (stringEquals(path, "/null")) {
-        return (void *)&file_system->null;
-    }
-    return NULL;
+    return FILE_OPERATION_DONE;
 }
 
 File *kernelFsCreate(File *directory, char *name, enum FileType type) {
     return NULL;
 }
 
-void kernelfs_write(KernelFsFile *file, void *data, uint32_t size, uint32_t offset,
-                struct ProcessThread *thread, struct FileDescriptor *descriptor,
-                uint32_t *bytes_written) {
+void kernelfs_write(KernelFsFile *file, void *data, uint32_t size,
+                    uint32_t offset, struct ProcessThread *thread,
+                    struct FileDescriptor *descriptor,
+                    uint32_t *bytes_written) {
     file->write(file, data, size, offset);
     *bytes_written = 0;
     listAdd(&threads_to_process, thread);
@@ -48,7 +50,7 @@ void kernelfs_read(KernelFsFile *file, void *data, uint32_t size,
 }
 
 FileSystemType kernelFsType = {
-    .getFile = kernelFsGet,
+    .getFile = kernelfs_get,
     .create = kernelFsCreate,
     .write = kernelfs_write,
     .read = kernelfs_read,

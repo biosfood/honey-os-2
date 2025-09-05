@@ -20,7 +20,9 @@ void mount(FileSystem *mount_list_file_system, FileSystem *file_system,
     listAdd(&mount_list_file_system->data, mount);
 }
 
-File *mountlist_get_file(FileSystem *file_system, char *path, struct ProcessThread *thread) {
+FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
+                                       struct ProcessThread *thread,
+                                       File **result, void **scratchpad) {
     Mount *mount = NULL;
     uint32_t current_match_length = 0;
     foreach (file_system->data, Mount *, current_mount, {
@@ -43,7 +45,8 @@ File *mountlist_get_file(FileSystem *file_system, char *path, struct ProcessThre
     })
         ;
     if (!mount) {
-        return NULL;
+        *result = NULL;
+        return FILE_OPERATION_DONE;
     }
     char *realpath =
         combineStrings(mount->pathOffset, path + strlen(mount->mountPoint));
@@ -67,14 +70,15 @@ File *mountlist_get_file(FileSystem *file_system, char *path, struct ProcessThre
     //         position++;
     //         pathPosition++;
     //     }
-    //     file = mount->file_system->type->getFile(mount->file_system, nextStep);
-    //     if (file->type == FILE_TYPE_LINK) {
+    //     file = mount->file_system->type->getFile(mount->file_system,
+    //     nextStep); if (file->type == FILE_TYPE_LINK) {
     //         // TODO
     //         // if symbolic link, findFile(newPath, mountlist)
     //         while (1)
     //             ;
     //     }
-    //     if (file->type == FILE_TYPE_DIRECTORY && position != strlen(realpath)) {
+    //     if (file->type == FILE_TYPE_DIRECTORY && position !=
+    //     strlen(realpath)) {
     //         nextStep[position] = path[pathPosition];
     //         position++;
     //         pathPosition++;
@@ -82,9 +86,10 @@ File *mountlist_get_file(FileSystem *file_system, char *path, struct ProcessThre
     //     }
     //     break;
     // }
-    File *file = mount->file_system->type->getFile(mount->file_system, realpath, thread);
+    FileOperationStatus status = mount->file_system->type->getFile(
+        mount->file_system, realpath, thread, result, scratchpad);
     free(realpath);
-    return file;
+    return status;
 }
 
 FileSystemType mountlist_file_system_type = {

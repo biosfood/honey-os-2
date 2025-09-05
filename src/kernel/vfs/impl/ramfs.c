@@ -16,12 +16,18 @@
 // in the kernel memory. directories store their children in a tree-like
 // structure.
 
-File *ramFsGet(FileSystem *file_system, char *path) {
-    if (*path != '/')
-        return NULL;
+FileOperationStatus ram_fs_get(FileSystem *file_system, char *path,
+                               struct ProcessThread *thread, File **result,
+                               void **scratchpad) {
+    if (*path != '/') {
+        *result = NULL;
+        return FILE_OPERATION_DONE;
+    }
     path++;
     if (!*path) {
-        return file_system->data;
+        // root directory
+        *result = file_system->data;
+        return FILE_OPERATION_DONE;
     }
     RamFsFile *current_dir = file_system->data;
     while (*path) {
@@ -41,14 +47,17 @@ File *ramFsGet(FileSystem *file_system, char *path) {
             ;
         path[next_slash] = old;
         if (!found_file) {
-            return NULL;
+            *result = NULL;
+            return FILE_OPERATION_DONE;
         }
         path += next_slash;
         if (!*path || *path == '/' && !path[1]) {
-            return (void *)found_file;
+            *result = (void*)found_file;
+            return FILE_OPERATION_DONE;
         }
         if (found_file->type != FILE_TYPE_DIRECTORY) {
-            return NULL;
+            *result = NULL;
+            return FILE_OPERATION_DONE;
         }
         path++;
         current_dir = found_file;
@@ -171,7 +180,7 @@ uint32_t ramFsGetattr(RamFsFile *file, struct stat *buf) {
 }
 
 FileSystemType ramfsType = {
-    .getFile = ramFsGet,
+    .getFile = ram_fs_get,
     .create = ramFsCreate,
     .write = ramfs_write,
     .read = ramfs_read,

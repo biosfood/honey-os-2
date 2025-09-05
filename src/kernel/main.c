@@ -31,18 +31,23 @@ Container *newContainer(FileSystem *fs) {
 
     Process *init_process = newProcess(container, "/bin/init");
 
-    File *init_file = fs->type->getFile((void *)fs, "/bin/init", NULL);
+    File *init_file;
+    void *scratchpad = NULL;
+    fs->type->getFile((void *)fs, "/bin/init", NULL, &init_file, &scratchpad);
 
     struct stat s;
     init_file->file_system->type->getattr(init_file, &s);
     void *file_data = malloc(s.st_size);
     // for now, just assume the file system is RAMfs
     uint32_t bytes_read;
-    init_file->file_system->type->read(init_file, file_data, s.st_size, 0, NULL, NULL, &bytes_read);
+    init_file->file_system->type->read(init_file, file_data, s.st_size, 0, NULL,
+                                       NULL, &bytes_read);
     processLoadELF(init_process, file_data);
     free(file_data);
 
-    File *nulldev = fs->type->getFile((void *)fs, "/kernel/null", NULL);
+    File *nulldev;
+    scratchpad = NULL;
+    fs->type->getFile((void *)fs, "/kernel/null", NULL, &nulldev, &scratchpad);
 
     // standard IO streams opened before program starts
     FileDescriptor *stdin = allocateFileDescriptor(init_process);

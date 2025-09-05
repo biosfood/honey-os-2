@@ -2,8 +2,6 @@
 // Created by lukas on 3/27/25.
 //
 
-#include "fnctl.h"
-
 #include <process.h>
 #include <stddef.h>
 #include <sys/stat.h>
@@ -64,13 +62,16 @@ void handleCreateFileSyscall(ProcessThread *thread) {
     }
     // TODO: handle no slashes here
     File *folderFile = NULL;
+    void *scratchpad = NULL;
     if (lastSlashPosition == 0) {
-        folderFile = thread->process->container->vfs->type->getFile(
-            thread->process->container->vfs, "/", thread);
+        thread->process->container->vfs->type->getFile(
+            thread->process->container->vfs, "/", thread, &folderFile,
+            &scratchpad);
     } else {
         filename[lastSlashPosition] = 0;
-        folderFile = thread->process->container->vfs->type->getFile(
-            thread->process->container->vfs, filename, thread);
+        thread->process->container->vfs->type->getFile(
+            thread->process->container->vfs, filename, thread, &folderFile,
+            &scratchpad);
         filename[lastSlashPosition] = '/';
     }
     if (!folderFile) {
@@ -120,44 +121,6 @@ FileDescriptor *allocateFileDescriptor(Process *process) {
         }
     }
     return descriptor;
-}
-
-void handleOpenSyscall(ProcessThread *thread) {
-    char *filename =
-        copy_string_from_process(thread->process, PTR(thread->parameters[0]));
-    File *file = thread->process->container->vfs->type->getFile(
-        thread->process->container->vfs, filename, thread);
-    listAdd(&threads_to_process, thread);
-    if (file == NULL) {
-        if (thread->parameters[1] & O_CREAT) {
-            char *directoryFileName = malloc(strlen(filename));
-            memcpy(filename, directoryFileName, strlen(filename) + 1);
-            int lastSlashPosition = strlen(filename) - 1;
-            while (lastSlashPosition &&
-                   directoryFileName[lastSlashPosition] != '/') {
-                lastSlashPosition--;
-            }
-            directoryFileName[lastSlashPosition] = 0;
-            File *dir = thread->process->container->vfs->type->getFile(
-                thread->process->container->vfs, directoryFileName, thread);
-            if (dir->type != FILE_TYPE_DIRECTORY) {
-                thread->returnValue = -1;
-                return;
-            }
-            file = dir->file_system->type->create(
-                dir, filename + lastSlashPosition + 1, FILE_TYPE_FILE);
-        } else {
-            thread->returnValue = -1;
-            return;
-        }
-    }
-    free(filename);
-    FileDescriptor *file_descriptor = allocateFileDescriptor(thread->process);
-    file_descriptor->file = file;
-    file_descriptor->process = thread->process;
-    file_descriptor->offset = 0;
-    thread->returnValue = file_descriptor->id;
-    listAdd(&file->file_descriptors, file_descriptor);
 }
 
 void handleCloseSyscall(ProcessThread *thread) {

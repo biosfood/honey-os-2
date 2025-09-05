@@ -19,20 +19,22 @@ File cpuid_root = {
     .file_descriptors = NULL,
 };
 
-File *cpuid_get(CpuidFileSystem *cpuidfs, char *filename) {
+FileOperationStatus cpuid_get(CpuidFileSystem *cpuidfs, char *filename,
+                              ProcessThread *thread, File **result,
+                              void **scratchpad) {
     if (filename[0] != '/') {
-        return NULL;
+        *result = NULL;
+        return FILE_OPERATION_DONE;
     }
     if (!filename[1]) {
-        return &cpuid_root;
+        *result = &cpuid_root;
+        return FILE_OPERATION_DONE;
     }
     uint32_t id = 0;
     filename++;
-    if (!read_integer_from_filename(&filename, &id)) {
-        return NULL;
-    }
-    if (*filename) {
-        return NULL;
+    if (!read_integer_from_filename(&filename, &id) || *filename) {
+        *result = NULL;
+        return FILE_OPERATION_DONE;
     }
     File *file = NULL;
     foreach (cpuid_files, File *, current_file, {
@@ -42,14 +44,16 @@ File *cpuid_get(CpuidFileSystem *cpuidfs, char *filename) {
     })
         ;
     if (file) {
-        return file;
+        *result = file;
+        return FILE_OPERATION_DONE;
     }
     file = malloc(sizeof(File));
     file->data = PTR(id);
     file->file_system = &cpuid_file_system;
     file->type = FILE_TYPE_FILE;
     listAdd(&cpuid_files, file);
-    return file;
+    *result = file;
+    return FILE_OPERATION_DONE;
 }
 
 void cpuid_read(File *file, void *data, uint32_t size, uint32_t offset,

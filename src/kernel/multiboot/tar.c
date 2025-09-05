@@ -45,12 +45,15 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
             }
             // TODO: handle no slashes here
             File *folderFile = NULL;
+            void *scratchpad = NULL;
             if (lastSlashPosition == 0) {
-                folderFile = file_system->type->getFile(file_system, "/", NULL);
+                file_system->type->getFile(file_system, "/", NULL, &folderFile,
+                                           &scratchpad);
             } else {
                 header->fileName[lastSlashPosition] = 0;
-                folderFile =
-                    file_system->type->getFile(file_system, header->fileName, NULL);
+
+                file_system->type->getFile(file_system, header->fileName, NULL,
+                                           &folderFile, &scratchpad);
                 header->fileName[lastSlashPosition] = '/';
             }
             if (folderFile->type != FILE_TYPE_DIRECTORY) {
@@ -78,12 +81,14 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
             }
             // TODO: handle no slashes here
             File *folderFile = NULL;
+            void *scratchpad = NULL;
             if (lastSlashPosition == 0) {
-                folderFile = file_system->type->getFile(file_system, "/", NULL);
+                file_system->type->getFile(file_system, "/", NULL, &folderFile,
+                                           &scratchpad);
             } else {
                 header->fileName[lastSlashPosition] = 0;
-                folderFile =
-                    file_system->type->getFile(file_system, header->fileName, NULL);
+                file_system->type->getFile(file_system, header->fileName, NULL,
+                                           &folderFile, &scratchpad);
                 header->fileName[lastSlashPosition] = '/';
             }
             if (folderFile->type != FILE_TYPE_DIRECTORY) {
@@ -93,7 +98,8 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
                 folderFile, header->fileName + lastSlashPosition + 1,
                 FILE_TYPE_FILE);
             uint32_t bytes_written;
-            file_system->type->write(file, currentPosition + 512, fileSize, 0, NULL, NULL, &bytes_written);
+            file_system->type->write(file, currentPosition + 512, fileSize, 0,
+                                     NULL, NULL, &bytes_written);
             currentPosition += 512 + ((fileSize / 512) + 1) * 512;
             continue;
         }

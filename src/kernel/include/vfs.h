@@ -41,6 +41,11 @@ enum FileType {
     FILE_TYPE_LINK = 5,
 };
 
+typedef enum FileOperationStatus {
+    FILE_OPERATION_DONE = 0,
+    FILE_OPERATION_WILL_SCHEDULE = 1,
+} FileOperationStatus;
+
 #define S_IFSOCK FILE_TYPE_SOCKET
 #define S_IFLNK FILE_TYPE_LINK
 #define S_IFREG FILE_TYPE_FILE
@@ -59,8 +64,9 @@ typedef struct File {
 } File;
 
 typedef struct {
-    File *(*getFile)(struct FileSystem *file_system, char *path,
-                     struct ProcessThread *thread);
+    FileOperationStatus (*getFile)(struct FileSystem *file_system, char *path,
+                                   struct ProcessThread *thread, File **result,
+                                   void **scratchpad);
     File *(*create)(File *file, char *path, enum FileType type);
     void (*write)(File *file, void *data, uint32_t size, uint32_t offset,
                   struct ProcessThread *thread,

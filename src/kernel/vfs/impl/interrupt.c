@@ -12,20 +12,21 @@ File interrupt_root = {
     .file_system = &interrupt_file_system,
 };
 
-File *interrupt_get(FileSystem *fs, char *filename) {
+FileOperationStatus interrupt_get(FileSystem *fs, char *filename, ProcessThread *thread,
+                    File **result, void **scratchpad) {
     if (filename[0] != '/') {
-        return NULL;
+        *result = NULL;
+        return FILE_OPERATION_DONE;
     }
     if (!filename[1]) {
-        return &interrupt_root;
+        *result = &interrupt_root;
+        return FILE_OPERATION_DONE;
     }
     uint32_t id = 0;
     filename++;
-    if (!read_integer_from_filename(&filename, &id)) {
-        return NULL;
-    }
-    if (*filename) {
-        return NULL;
+    if (!read_integer_from_filename(&filename, &id) || *filename) {
+        *result = NULL;
+        return FILE_OPERATION_DONE;
     }
     File *file = &interrupt_files[id];
     if (!file->data) {
@@ -35,7 +36,8 @@ File *interrupt_get(FileSystem *fs, char *filename) {
         file->type = FILE_TYPE_FIFO;
         file->file_system = &interrupt_file_system;
     }
-    return file;
+    *result = file;
+    return FILE_OPERATION_DONE;
 }
 
 int interrupt_getattr(File *file, struct stat *s) {
@@ -46,9 +48,9 @@ int interrupt_getattr(File *file, struct stat *s) {
     }
 }
 
-void interrupt_read(File *file, void *data, uint32_t size,
-                   uint32_t offset, struct ProcessThread *thread,
-                   struct FileDescriptor *descriptor, uint32_t *bytes_read) {
+void interrupt_read(File *file, void *data, uint32_t size, uint32_t offset,
+                    struct ProcessThread *thread,
+                    struct FileDescriptor *descriptor, uint32_t *bytes_read) {
     if (file->type == FILE_TYPE_FIFO) {
         fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
     } else {

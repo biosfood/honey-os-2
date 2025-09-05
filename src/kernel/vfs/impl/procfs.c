@@ -12,18 +12,23 @@ typedef struct {
     File self_link;
 } ProcFileSystem;
 
-File *procfs_get(ProcFileSystem *fs, char *filename, ProcessThread *thread) {
+FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
+                               struct ProcessThread *thread, File **result,
+                               void **scratchpad) {
     if (!thread) {
-        return NULL;
+        *result = NULL;
+        return FILE_OPERATION_DONE;
     }
     // TODO: self: symlink to proc of current thread.
     if (!filename[1]) {
-        return &fs->rootdir;
+        *result = &fs->rootdir;
+        return FILE_OPERATION_DONE;
     }
     uint32_t id = 0;
     filename++;
     if (!read_integer_from_filename(&filename, &id)) {
-        return NULL;
+        *result = NULL;
+        return FILE_OPERATION_DONE;
     }
     Process *process = NULL;
     foreach (fs->container->processes, Process *, current_process, {
@@ -34,12 +39,15 @@ File *procfs_get(ProcFileSystem *fs, char *filename, ProcessThread *thread) {
     })
         ;
     if (!process) {
-        return NULL;
+        *result = NULL;
+        return FILE_OPERATION_DONE;
     }
     if (stringEquals(filename, "exe")) {
-        return (void *)&process->process_files[PROC_FILE_EXECUTABLE];
+        *result = (void *)&process->process_files[PROC_FILE_EXECUTABLE];
+    } else {
+        *result = NULL;
     }
-    return NULL;
+    return FILE_OPERATION_DONE;
 }
 
 void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,

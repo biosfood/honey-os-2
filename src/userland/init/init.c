@@ -29,9 +29,9 @@ int main() {
     int fd = open(filename, 0);
     struct stat stat;
     fstat(fd, &stat);
-    char *data = malloc(stat.st_size);
-    read(fd, data, stat.st_size);
-    printf("%s: %s\n", filename, data);
+    uint8_t data[4];
+    read(fd, data, 4);
+    printf("%s: %x %x %x %x\n", filename, data[0], data[1], data[2], data[3]);
 
     pid = fork();
     if (!pid) {

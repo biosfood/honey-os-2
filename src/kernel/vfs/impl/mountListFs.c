@@ -124,6 +124,10 @@ FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
         state->fs_scratchpad = NULL;
         if (*result) {
             if ((*result)->type != FILE_TYPE_SYMLINK) {
+                if (state->current_path[strlen(state->current_path) + 1]) {
+                    // we have remainder but no match
+                    *result = NULL;
+                }
                 state->stage = MOUNTLIST_GET_POST;
                 goto end;
             }

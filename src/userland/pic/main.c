@@ -28,7 +28,8 @@ uint16_t getISR() {
     return result;
 }
 
-void handler(int i) {
+void handler(void *param) {
+    int i = (intptr_t)param;
     char *filename;
     asprintf(&filename, "/dev/interrupt/%i", OFFSET + i);
     int interrupt_fd = open(filename, 0);

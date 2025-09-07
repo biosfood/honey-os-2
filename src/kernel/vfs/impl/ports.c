@@ -16,7 +16,7 @@ File port_root = {
     .file_descriptors = NULL,
 };
 
-FileOperationStatus port_get_file(FileSystem *file_system, const char *filename,
+FileOperationStatus port_get_file(struct FileSystem *file_system, char *filename,
                                   struct ProcessThread *thread, File **result,
                                   void **scratchpad) {
     if (filename[0] != '/') {

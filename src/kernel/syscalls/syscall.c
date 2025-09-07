@@ -52,23 +52,6 @@ void handleSyscall(void *esp, const uint32_t function, const uint32_t parameter0
     current_thread->parameters[3] = parameter3;
 }
 
-extern uintptr_t handleCreateFunctionSyscall;
-extern uintptr_t handleRequestSyscall;
-extern uintptr_t handleGetServiceSyscall;
-extern uintptr_t handleGetFunctionSyscall;
-extern uintptr_t handleSubscribeInterruptSyscall;
-extern uintptr_t handleCreateEventSyscall;
-extern uintptr_t handleGetEventSyscall;
-extern uintptr_t handleFireEventSyscall;
-extern uintptr_t handleSubscribeEventSyscall;
-extern uintptr_t handleGetServiceIdSyscall;
-extern uintptr_t handleInsertStringSyscall;
-extern uintptr_t handleReadStringLengthSyscall;
-extern uintptr_t handleReadStringSyscall;
-extern uintptr_t handleDiscardStringSyscall;
-extern uintptr_t handleLookupSymbolSyscall;
-extern uintptr_t handleStackContainsSyscall;
-extern uintptr_t handleAwaitSyscall;
 extern uintptr_t handleForkSyscall;
 extern uintptr_t handlePthreadCreateSyscall;
 extern uintptr_t handleOpenSyscall, handleCloseSyscall;

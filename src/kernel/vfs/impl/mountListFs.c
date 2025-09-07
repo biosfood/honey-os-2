@@ -40,11 +40,6 @@ struct MountlistGetState {
     char *current_path;
     void *fs_scratchpad;
     char *symlink_read;
-
-    char *remainder;
-    char *current_actual_path;
-    File *file;
-    int retval;
 };
 
 char *mountlist_lookup(FileSystem *file_system, char *path, Mount **mount) {

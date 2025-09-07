@@ -40,7 +40,7 @@ FileOperationStatus interrupt_get(FileSystem *fs, char *filename, ProcessThread 
     return FILE_OPERATION_DONE;
 }
 
-int interrupt_getattr(File *file, struct stat *s) {
+uint32_t interrupt_getattr(File *file, struct stat *s) {
     if (file == &interrupt_root) {
         s->st_size = 10;
     } else {

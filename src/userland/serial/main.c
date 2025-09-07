@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-void readLoop() {
+void *readLoop(void *) {
     int irq_fd;
     while ((irq_fd = open("/dev/pic/4", 0)) == -1);
     int write_fd = open("/dev/serin", 0);
@@ -22,6 +22,7 @@ void readLoop() {
         }
         read(irq_fd, &buf, 1);
     }
+    return NULL;
 }
 
 char buffer[1024];

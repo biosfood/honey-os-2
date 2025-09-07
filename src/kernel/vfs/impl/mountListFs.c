@@ -19,7 +19,7 @@ void mount(FileSystem *mount_list_file_system, FileSystem *file_system,
     mount->mountPoint = mountPoint;
     mount->pathOffset = pathOffset;
     listAdd(&file_system->mountedInstances, mount);
-    listAdd(&mount_list_file_system->data, mount);
+    listAdd((void*)&mount_list_file_system->data, mount);
 }
 
 void clean_path(char *path) {

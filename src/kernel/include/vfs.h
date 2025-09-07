@@ -67,7 +67,7 @@ typedef struct {
     FileOperationStatus (*getFile)(struct FileSystem *file_system, char *path,
                                    struct ProcessThread *thread, File **result,
                                    void **scratchpad);
-    File *(*create)(File *file, char *path, enum FileType type);
+    int (*create)(File *file, char *path, enum FileType type);
     void (*write)(File *file, void *data, uint32_t size, uint32_t offset,
                   struct ProcessThread *thread,
                   struct FileDescriptor *descriptor, uint32_t *bytes_written);

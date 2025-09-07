@@ -187,11 +187,11 @@ uint32_t ramFsGetattr(RamFsFile *file, struct stat *buf) {
 }
 
 FileSystemType ramfsType = {
-    .getFile = ram_fs_get,
-    .create = ramFsCreate,
-    .write = ramfs_write,
-    .read = ramfs_read,
-    .getattr = ramFsGetattr,
+    .getFile = (void*)ram_fs_get,
+    .create = (void*)ramFsCreate,
+    .write = (void*)ramfs_write,
+    .read = (void*)ramfs_read,
+    .getattr = (void*)ramFsGetattr,
 };
 
 FileSystem *createRamfs() {

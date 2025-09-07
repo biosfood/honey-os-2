@@ -6,7 +6,7 @@
 #define KERNELFS_H
 #include <vfs.h>
 
-typedef struct {
+typedef struct KernelFsFile {
     File;
     void (*write)(struct KernelFsFile *file, void *data, uint32_t size,
                   uint32_t offset);

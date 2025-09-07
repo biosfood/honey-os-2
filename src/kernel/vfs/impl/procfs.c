@@ -73,10 +73,10 @@ void procfs_getattr(ProcessFile *file, struct stat *stbuf) {
 }
 
 FileSystemType procfs_type = {
-    .getFile = procfs_get,
+    .getFile = (void *)procfs_get,
     .create = NULL,
-    .getattr = procfs_getattr,
-    .read = procfs_read,
+    .getattr = (void *)procfs_getattr,
+    .read = (void *)procfs_read,
     .write = NULL,
 };
 

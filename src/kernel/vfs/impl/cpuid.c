@@ -88,10 +88,10 @@ uint32_t cpuid_getattr(File *file, struct stat *buf) {
 
 FileSystemType cpuid_file_system_type = {
     .create = NULL,
-    .getFile = cpuid_get,
-    .read = cpuid_read,
+    .getFile = (void*)cpuid_get,
+    .read = (void*)cpuid_read,
     .write = NULL,
-    .getattr = cpuid_getattr,
+    .getattr = (void*)cpuid_getattr,
 };
 
 FileSystem cpuid_file_system = {

@@ -28,7 +28,7 @@ uint16_t getISR() {
     return result;
 }
 
-void handler(void *param) {
+void *handler(void *param) {
     int i = (intptr_t)param;
     char *filename;
     asprintf(&filename, "/dev/interrupt/%i", OFFSET + i);
@@ -93,7 +93,7 @@ int main(char **argv, int argc) {
     write(control_master_fd, &d, 1);
     write(control_slave_fd, &d, 1);
     for (uint8_t i = 0; i < 16; i++) {
-        pthread_create(NULL, NULL, handler, i);
+        pthread_create(NULL, NULL, handler, (void*)(uintptr_t)i);
     }
     // TODO: join all threads
 }

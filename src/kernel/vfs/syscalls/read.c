@@ -18,7 +18,7 @@ struct ReadState {
 };
 
 void handleReadSyscall(ProcessThread *thread) {
-    struct ReadState *state = thread->threadProcessingState;
+    struct ReadState *state = (void*)thread->threadProcessingState;
     uint32_t bytes_to_transfer;
     switch (state->stage) {
     case READ_SETUP:

@@ -19,7 +19,7 @@ struct OpenState {
 };
 
 void handleOpenSyscall(ProcessThread *thread) {
-    struct OpenState *state = thread->threadProcessingState;
+    struct OpenState *state = (void*)thread->threadProcessingState;
     thread->run = false; // must explicitly be set.
     switch (state->stage) {
     case OPEN_PRE:

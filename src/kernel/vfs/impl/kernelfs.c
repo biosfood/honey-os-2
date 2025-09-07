@@ -30,7 +30,7 @@ int kernelFsCreate(File *directory, char *name, enum FileType type) {
     return -1;
 }
 
-void kernelfs_write(KernelFsFile *file, void *data, uint32_t size,
+void kernelfs_write(struct KernelFsFile *file, void *data, uint32_t size,
                     uint32_t offset, struct ProcessThread *thread,
                     struct FileDescriptor *descriptor,
                     uint32_t *bytes_written) {
@@ -50,15 +50,14 @@ void kernelfs_read(KernelFsFile *file, void *data, uint32_t size,
 }
 
 FileSystemType kernelFsType = {
-    .getFile = kernelfs_get,
-    .create = kernelFsCreate,
-    .write = kernelfs_write,
-    .read = kernelfs_read,
+    .getFile = (void*)kernelfs_get,
+    .create = (void*)kernelFsCreate,
+    .write = (void*)kernelfs_write,
+    .read = (void*)kernelfs_read,
 };
 
-uint32_t null_write(KernelFsFile *file, void *data, uint32_t size,
+void null_write(struct KernelFsFile *file, void *data, uint32_t size,
                     uint32_t offset) {
-    return size;
 }
 
 uint32_t null_read(KernelFsFile *file, void *data, uint32_t size,
@@ -66,6 +65,7 @@ uint32_t null_read(KernelFsFile *file, void *data, uint32_t size,
                    struct FileDescriptor *descriptor, uint32_t *bytes_read) {
     listAdd(&threads_to_process, thread);
     *bytes_read = 0;
+    return 0;
 }
 
 KernelFsFileSystem kernel_fs_file_system = {

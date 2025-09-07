@@ -43,52 +43,6 @@ bool read_integer_from_filename(char **filename, uint32_t *data) {
     return true;
 }
 
-void handleCreateFileSyscall(ProcessThread *thread) {
-    char *filename =
-        copy_string_from_process(thread->process, PTR(thread->parameters[0]));
-
-    uint8_t length = strlen(filename);
-    if (length < 2) {
-        thread->returnValue = -1;
-        goto end;
-    }
-    if (filename[length - 1] == '/') {
-        filename[strlen(filename) - 1] = 0;
-        length--;
-    }
-    uint8_t lastSlashPosition = length - 1;
-    while (filename[lastSlashPosition] != '/') {
-        lastSlashPosition--;
-    }
-    // TODO: handle no slashes here
-    File *folderFile = NULL;
-    void *scratchpad = NULL;
-    if (lastSlashPosition == 0) {
-        thread->process->container->vfs->type->getFile(
-            thread->process->container->vfs, "/", thread, &folderFile,
-            &scratchpad);
-    } else {
-        filename[lastSlashPosition] = 0;
-        thread->process->container->vfs->type->getFile(
-            thread->process->container->vfs, filename, thread, &folderFile,
-            &scratchpad);
-        filename[lastSlashPosition] = '/';
-    }
-    if (!folderFile) {
-        thread->returnValue = -1;
-        goto end;
-    }
-    File *file = folderFile->file_system->type->create(
-        folderFile, filename + lastSlashPosition + 1, thread->parameters[1]);
-    if (!file) {
-        thread->returnValue = -1;
-        goto end;
-    }
-    thread->returnValue = 0;
-end:
-    listAdd(&threads_to_process, thread);
-}
-
 FileDescriptor *allocateFileDescriptor(Process *process) {
     FileDescriptor *descriptor = malloc(sizeof(FileDescriptor));
     descriptor->id = 0;

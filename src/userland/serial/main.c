@@ -27,7 +27,6 @@ void readLoop() {
 char buffer[1024];
 
 void main() {
-    pthread_create(NULL, NULL, readLoop, NULL);
     int fd = open("/dev/serout", 0);
 
     int rbr = open("/dev/port/1016", 0);
@@ -35,9 +34,9 @@ void main() {
     int irr = open("/dev/port/1018", 0);
     int lcr = open("/dev/port/1019", 0);
     int mcr = open("/dev/port/1020", 0);
-    int lsr = open("/dev/port/1021", 0);
-    int msr = open("/dev/port/1022", 0);
-    int scr = open("/dev/port/1023", 0);
+    // int lsr = open("/dev/port/1021", 0);
+    // int msr = open("/dev/port/1022", 0);
+    // int scr = open("/dev/port/1023", 0);
 
     uint8_t data = 1;
     write(ier, &data, 1);
@@ -54,6 +53,7 @@ void main() {
     data = 0x0B;
     write(mcr, &data, 1);
 
+    pthread_create(NULL, NULL, readLoop, NULL);
     while (1) {
         const int32_t count = read(fd, buffer, 1024);
         for (int i = 0; i < count; i++) {

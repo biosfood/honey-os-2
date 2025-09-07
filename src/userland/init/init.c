@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 int main() {
-    mkdir("/dev/", 0);
+    mkdir("/dev", 0);
     mkfifo("/dev/serout", 0);
     mkfifo("/dev/serin", 0);
 
@@ -19,6 +19,7 @@ int main() {
     // reassign STDIN
     close(STDIN_FILENO);
     open("/dev/serin", 0);
+    printf("Hello World!\n");
 
     pid_t pid = fork();
     if (!pid) {

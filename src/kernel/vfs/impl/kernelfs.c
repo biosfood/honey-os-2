@@ -26,8 +26,8 @@ FileOperationStatus kernelfs_get(KernelFsFileSystem *file_system, char *path,
     return FILE_OPERATION_DONE;
 }
 
-File *kernelFsCreate(File *directory, char *name, enum FileType type) {
-    return NULL;
+int kernelFsCreate(File *directory, char *name, enum FileType type) {
+    return -1;
 }
 
 void kernelfs_write(KernelFsFile *file, void *data, uint32_t size,

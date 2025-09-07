@@ -64,13 +64,13 @@ FileOperationStatus ram_fs_get(FileSystem *file_system, char *path,
     }
 }
 
-File *ramFsCreate(File *directory, char *name, enum FileType type) {
+int ramFsCreate(File *directory, char *name, enum FileType type) {
     if (directory->type != FILE_TYPE_DIRECTORY) {
-        return NULL;
+        return -1;
     }
     foreach (directory->data, RamFsFile *, file, {
         if (stringEquals(file->name, name)) {
-            return NULL;
+            return -1;
         }
     })
         ;
@@ -81,7 +81,7 @@ File *ramFsCreate(File *directory, char *name, enum FileType type) {
     file->file_system = directory->file_system;
     file->type = type;
     listAdd((void *)&directory->data, file);
-    return (void *)file;
+    return 0;
 }
 
 void ramfs_write(RamFsFile *file, void *data, uint32_t size, uint32_t offset,

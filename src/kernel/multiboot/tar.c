@@ -94,9 +94,12 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
             if (folderFile->type != FILE_TYPE_DIRECTORY) {
                 goto end;
             }
-            File *file = file_system->type->create(
+            file_system->type->create(
                 folderFile, header->fileName + lastSlashPosition + 1,
                 FILE_TYPE_FILE);
+            File *file;
+            file_system->type->getFile(file_system, header->fileName, NULL, &file,
+                                           &scratchpad);
             uint32_t bytes_written;
             file_system->type->write(file, currentPosition + 512, fileSize, 0,
                                      NULL, NULL, &bytes_written);

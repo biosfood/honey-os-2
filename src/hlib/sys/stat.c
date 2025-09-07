@@ -15,15 +15,50 @@ enum FileType {
 };
 
 #include <hlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <syscalls.h>
 
+uint32_t get_last_slash_position(char *string) {
+    uint32_t result = strlen(string);
+    if (!result) {
+        return 0;
+    }
+    result--;
+    while (result && string[result] != '/') {
+        result--;
+    }
+    return result;
+}
+
+int create(char *path, int type) {
+    uint32_t last_slash_position = get_last_slash_position(path);
+    if (last_slash_position == 0) {
+        int fd = open("/", 0);
+        if (fd < 0) {
+            return -1;
+        }
+        int result = (int)syscall(SYS_FILE_CREATE, fd, U32(path + 1), type, 0);
+        close(fd);
+        return result;
+    }
+    path[last_slash_position] = 0;
+    int fd = open(path, 0);
+    path[last_slash_position] = '/';
+    if (fd < 0) {
+        return -1;
+    }
+    int result = (int)syscall(SYS_FILE_CREATE, fd, U32(path + last_slash_position + 1), type, 0);
+    close(fd);
+    return result;
+}
+
 int mkfifo(const char *path, mode_t mode) {
-    return (int)syscall(SYS_FILE_CREATE, U32(path), FILE_TYPE_FIFO, 0, 0);
+    return create(path, FILE_TYPE_FIFO);
 }
 
 int mkdir(const char *path, mode_t mode) {
-    return (int)syscall(SYS_FILE_CREATE, U32(path), FILE_TYPE_DIRECTORY, 0, 0);
+    return create(path, FILE_TYPE_DIRECTORY);
 }
 
 int fstat(int fildes, struct stat *buf) {

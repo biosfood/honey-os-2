@@ -55,12 +55,12 @@ void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
                  struct FileDescriptor *descriptor, uint32_t *bytes_read) {
     switch (file->file_type) {
     case PROC_FILE_EXECUTABLE:
-        if (file->length < size + offset) {
+        if (offset > file->length) {
             *bytes_read = 0;
-            break;
+        } else {
+            *bytes_read = MIN(offset + size, file->length);
+            memcpy(file->data + offset, data, *bytes_read);
         }
-        *bytes_read = MIN(offset + size, file->length);
-        memcpy(file->data + offset, data, *bytes_read);
         break;
     default:
         break;
@@ -89,7 +89,7 @@ FileSystem *create_process_fs(struct Container *container) {
     result->rootdir.data = NULL;
     result->rootdir.file_descriptors = NULL;
     result->rootdir.file_system = (void *)result;
-    result->rootdir.type = FILE_TYPE_SYMLINK;
+    result->rootdir.type = FILE_TYPE_DIRECTORY;
     result->type = &procfs_type;
     return (void *)result;
 }

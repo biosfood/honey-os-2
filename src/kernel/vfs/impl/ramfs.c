@@ -91,6 +91,12 @@ void ramfs_write(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
         fifo_write((File *)file, data, size, bytes_written, thread);
         return;
     }
+    if (file->type == FILE_TYPE_DIRECTORY) {
+        if (thread) {
+            listAdd(&threads_to_process, thread);
+        }
+        return;
+    }
     // just completely overwrites the file for now...
     if (file->data) {
         free(file->data);
@@ -98,6 +104,7 @@ void ramfs_write(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
     file->data = malloc(size + offset);
     file->size = size + offset;
     memcpy(data, file->data + offset, size);
+    *bytes_written = size;
     if (thread) {
         listAdd(&threads_to_process, thread);
     }

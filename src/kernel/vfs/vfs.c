@@ -92,6 +92,7 @@ void handleCloseSyscall(ProcessThread *thread) {
     }
     listRemoveValue(&thread->process->openFileHandles, file_descriptor);
     listRemoveValue(&file_descriptor->file->file_descriptors, file_descriptor);
+    free(file_descriptor->path);
     free(file_descriptor);
     thread->returnValue = 0;
     listAdd(&threads_to_process, thread);

@@ -127,6 +127,10 @@ void handleExecSyscall(ProcessThread *thread) {
     listClear(process->threads);
     process->threads = NULL;
 
+    process->process_files[PROC_FILE_EXECUTABLE].data =
+        combineStrings("", file_descriptor->path);
+    process->process_files[PROC_FILE_EXECUTABLE].length = strlen(file_descriptor->path) + 1;
+
     foreach (process->virtual_memory_entries, VirtualMemoryEntry *, virtual, {
         foreach (virtual->mappings, MemoryMapping *, mapping, {
             unmapPageFrom(&process->memory_information,

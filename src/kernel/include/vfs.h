@@ -30,6 +30,7 @@ typedef struct FileDescriptor {
     struct Process *process;
     uint32_t offset;
     FiFoData fifo_data;
+    char *path;
 } FileDescriptor;
 
 enum FileType {
@@ -66,7 +67,7 @@ typedef struct File {
 typedef struct {
     FileOperationStatus (*getFile)(struct FileSystem *file_system, char *path,
                                    struct ProcessThread *thread, File **result,
-                                   void **scratchpad);
+                                   void **scratchpad, uint32_t options);
     int (*create)(File *file, char *path, enum FileType type);
     void (*write)(File *file, void *data, uint32_t size, uint32_t offset,
                   struct ProcessThread *thread,

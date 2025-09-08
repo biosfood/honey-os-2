@@ -51,8 +51,8 @@ void handleOpenSyscall(ProcessThread *thread) {
             file_descriptor->offset = 0;
             thread->returnValue = file_descriptor->id;
             listAdd(&state->file->file_descriptors, file_descriptor);
+            file_descriptor->path = state->filename; // taken from copy_string_from_process
         }
-        free(state->filename);
         thread->run = true;
         listAdd(&threads_to_process, thread);
     }

@@ -48,12 +48,12 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
             void *scratchpad = NULL;
             if (lastSlashPosition == 0) {
                 file_system->type->getFile(file_system, "/", NULL, &folderFile,
-                                           &scratchpad);
+                                           &scratchpad, 0);
             } else {
                 header->fileName[lastSlashPosition] = 0;
 
                 file_system->type->getFile(file_system, header->fileName, NULL,
-                                           &folderFile, &scratchpad);
+                                           &folderFile, &scratchpad, 0);
                 header->fileName[lastSlashPosition] = '/';
             }
             if (folderFile->type != FILE_TYPE_DIRECTORY) {
@@ -84,11 +84,11 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
             void *scratchpad = NULL;
             if (lastSlashPosition == 0) {
                 file_system->type->getFile(file_system, "/", NULL, &folderFile,
-                                           &scratchpad);
+                                           &scratchpad, 0);
             } else {
                 header->fileName[lastSlashPosition] = 0;
                 file_system->type->getFile(file_system, header->fileName, NULL,
-                                           &folderFile, &scratchpad);
+                                           &folderFile, &scratchpad, 0);
                 header->fileName[lastSlashPosition] = '/';
             }
             if (folderFile->type != FILE_TYPE_DIRECTORY) {
@@ -99,7 +99,7 @@ void processInitrd(void *fileData, uint32_t tarFileSize,
                 FILE_TYPE_FILE);
             File *file;
             file_system->type->getFile(file_system, header->fileName, NULL, &file,
-                                           &scratchpad);
+                                           &scratchpad, 0);
             uint32_t bytes_written;
             file_system->type->write(file, currentPosition + 512, fileSize, 0,
                                      NULL, NULL, &bytes_written);

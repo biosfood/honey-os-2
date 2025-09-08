@@ -29,11 +29,11 @@ Container *newContainer(FileSystem *fs) {
     // etc. at /proc this will provide a simple way for the kernel to exchange
     // information with user processes
 
-    Process *init_process = newProcess(container, "/bin/init");
+    Process *init_process = newProcess(container, combineStrings("", "/bin/init"));
 
     File *init_file;
     void *scratchpad = NULL;
-    fs->type->getFile((void *)fs, "/bin/init", NULL, &init_file, &scratchpad);
+    fs->type->getFile((void *)fs, "/bin/init", NULL, &init_file, &scratchpad, 0);
 
     struct stat s;
     init_file->file_system->type->getattr(init_file, &s);
@@ -47,7 +47,7 @@ Container *newContainer(FileSystem *fs) {
 
     File *nulldev;
     scratchpad = NULL;
-    fs->type->getFile((void *)fs, "/kernel/null", NULL, &nulldev, &scratchpad);
+    fs->type->getFile((void *)fs, "/kernel/null", NULL, &nulldev, &scratchpad, 0);
 
     // standard IO streams opened before program starts
     FileDescriptor *stdin = allocateFileDescriptor(init_process);

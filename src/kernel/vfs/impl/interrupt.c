@@ -13,7 +13,7 @@ File interrupt_root = {
 };
 
 FileOperationStatus interrupt_get(FileSystem *fs, char *filename, ProcessThread *thread,
-                    File **result, void **scratchpad) {
+                    File **result, void **scratchpad, uint32_t options) {
     if (filename[0] != '/') {
         *result = NULL;
         return FILE_OPERATION_DONE;

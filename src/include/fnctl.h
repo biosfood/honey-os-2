@@ -18,5 +18,6 @@ extern int open(const char *, int, ...);
 #define O_NOFOLLOW 64
 #define O_TRUNC 128
 #define O_TTY_INIT 256
+#define O_SYMLINK 512
 
 #endif //FNCTL_H

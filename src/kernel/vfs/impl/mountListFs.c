@@ -1,3 +1,4 @@
+#include "fnctl.h"
 #include "process.h"
 
 #include <stddef.h>
@@ -84,7 +85,7 @@ uint32_t get_last_slash_position(char *string) {
 
 FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
                                        struct ProcessThread *thread,
-                                       File **result, void **scratchpad) {
+                                       File **result, void **scratchpad, uint32_t options) {
     if (!*scratchpad) {
         *scratchpad = malloc(sizeof(struct MountlistGetState));
         ((struct MountlistGetState *)*scratchpad)->stage = MOUNTLIST_GET_PRE;
@@ -111,7 +112,7 @@ FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
         }
         FileOperationStatus status = mount->file_system->type->getFile(
             mount->file_system, real_path, thread, result,
-            &state->fs_scratchpad);
+            &state->fs_scratchpad, options);
         if (status != FILE_OPERATION_DONE) {
             // fs should schedule us at some point
             return status;
@@ -123,6 +124,10 @@ FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
                     // we have remainder but no match
                     *result = NULL;
                 }
+                state->stage = MOUNTLIST_GET_POST;
+                goto end;
+            }
+            if ((options & O_SYMLINK) && !state->current_path[strlen(state->current_path) + 1]) {
                 state->stage = MOUNTLIST_GET_POST;
                 goto end;
             }

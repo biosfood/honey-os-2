@@ -33,7 +33,7 @@ void handleOpenSyscall(ProcessThread *thread) {
         FileOperationStatus status =
             thread->process->container->vfs->type->getFile(
                 thread->process->container->vfs, state->filename, thread,
-                &state->file, &state->scratchpad);
+                &state->file, &state->scratchpad, thread->parameters[1]);
         if (status != FILE_OPERATION_DONE) {
             break;
         }

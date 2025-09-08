@@ -18,7 +18,7 @@ File port_root = {
 
 FileOperationStatus port_get_file(struct FileSystem *file_system, char *filename,
                                   struct ProcessThread *thread, File **result,
-                                  void **scratchpad) {
+                                  void **scratchpad, uint32_t options) {
     if (filename[0] != '/') {
         *result = NULL;
         return FILE_OPERATION_DONE;

@@ -1,5 +1,5 @@
-#include <process.h>
 #include "elf.h"
+#include <process.h>
 
 void build_starting_stack(ProcessThread *thread, void *start_position) {
     Process *process = thread->process;
@@ -37,7 +37,6 @@ extern void *functionsEnd;
 
 PhysicalMemoryEntry kernel_functions_physical = {.physical = 0, 4, 0};
 
-
 ProcessThread *processLoadELF(Process *process, void *file_data) {
     ElfHeader *header = file_data;
     ProgramHeader *programHeader =
@@ -53,23 +52,35 @@ ProcessThread *processLoadELF(Process *process, void *file_data) {
     // reserve first few pages to hopefully catch NULL pointers correctly
     reservePagesCount(&(process->memory_information), 0, 0x10);
     for (uint32_t i = 0; i < header->programHeaderEntryCount; i++) {
+        if (programHeader->segmentType != 1) {
+            continue;
+        }
+        if (programHeader->segmentMemorySize == 0) {
+            continue;
+        }
         VirtualMemoryEntry *virtual = malloc(sizeof(VirtualMemoryEntry));
-        virtual->virtual = PTR(programHeader->virtualAddress);
+        virtual->virtual = ADDRESS(PAGE_ID(PTR(programHeader->virtualAddress)));
         virtual->process = process;
         virtual->type = MEM_TYPE_PROGRAM_DATA;
         virtual->mappings = NULL;
         virtual->size = programHeader->segmentMemorySize;
         listAdd(&process->virtual_memory_entries, virtual);
 
-        for (uint32_t page = 0; page < programHeader->segmentMemorySize;
+        PhysicalMemoryEntry *physical_memory_entry =
+            get_single_page_physical_memory_entry();
+        void *mapped = mapTemporaryA(physical_memory_entry->physical);
+        memcpy(file_data + programHeader->dataOffset,
+               mapped + (programHeader->virtualAddress & 0xFFF),
+               0x1000 - (programHeader->virtualAddress & 0xFFF));
+        MAP(virtual, physical_memory_entry, PTR(programHeader->virtualAddress));
+        for (uint32_t page = 0x1000; page < programHeader->segmentMemorySize;
              page += 0x1000) {
-            PhysicalMemoryEntry *physical_memory_entry =
+            physical_memory_entry =
                 get_single_page_physical_memory_entry();
-            if (programHeader->segmentFileSize > page) {
-                void *mapped = mapTemporaryA(physical_memory_entry->physical);
-                memcpy(file_data + programHeader->dataOffset + page, mapped,
-                       MIN(0x1000, programHeader->segmentFileSize - page));
-            }
+            mapped = mapTemporaryA(physical_memory_entry->physical);
+            memset(mapped, 0, 0x1000);
+            memcpy(file_data + programHeader->dataOffset + page, mapped,
+                   MIN(0x1000, programHeader->segmentFileSize - page));
             MAP(virtual, physical_memory_entry,
                 PTR(programHeader->virtualAddress + page));
         }

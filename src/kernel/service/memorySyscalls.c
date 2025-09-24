@@ -16,20 +16,16 @@ typedef struct {
 #define pageCount(x) ((((x) - 1) >> 12) + 1)
 
 void handleMmapSyscall(ProcessThread *thread) {
-    MmapArgs args;
-    MmapArgs *threadArgs = mapTemporaryA(
-        getPhysicalAddress(thread->process->memory_information.pageDirectory,
-                           PTR(thread->parameters[0])));
-    memcpy(threadArgs, &args, sizeof(MmapArgs));
-    uint32_t pagesCount = pageCount(args.len);
+    MmapArgs *threadArgs = copy_from_process_to_kernel(thread->process, PTR(thread->parameters[0]), sizeof(MmapArgs));
+    uint32_t pagesCount = pageCount(threadArgs->len);
 
-    if (args.flags & MAP_ANON) {
-        if (args.filedes != -1) {
+    if (threadArgs->flags & MAP_ANON) {
+        if (threadArgs->filedes != -1) {
             thread->returnValue = -1;
             listAdd(&threads_to_process, thread);
             return;
         }
-        void *target = PTR(thread->parameters[1]);
+        void *target = threadArgs->addr;
         uint32_t virtualStart = PAGE_ID(target);
         if (!target) {
             virtualStart = findMultiplePages(

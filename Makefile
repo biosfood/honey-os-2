@@ -1,6 +1,8 @@
 IMAGE_FILE = /run/user/1000/honey-os.img
 
-CC = i686-elf-gcc
+export CC=i686-elf-gcc
+export AR=i686-elf-ar
+export RANLIB=i686-elf-ranlib
 CCFLAGS = -m32 -mtune=generic -ffreestanding -nostdlib -c -I src/include -I src/kernel/include -Wno-discarded-qualifiers -fms-extensions -Wno-shift-count-overflow -O0 -g
 LD = i686-elf-ld
 LD_FLAGS = -z max-page-size=0x1000 -T link.ld
@@ -22,6 +24,7 @@ all: run
 
 build:
 	@mkdir build
+	@mkdir build/musl
 
 initrd:
 	@mkdir initrd
@@ -60,3 +63,19 @@ hlib: initrd
 clean:
 	@echo "clearing build folder"
 	@rm -r $(BUILD_FOLDER) initrd src/userland/build
+
+export CROSS_COMPILE=i386-elf-
+MUSL_BUILD_DIR := $(abspath build/musl)
+build/musl/config.mak: build
+	cd build/musl && ../../musl/configure --target=i386-elf --enable-debug --disable-shared --exec-prefix=$(MUSL_BUILD_DIR) --prefix=$(MUSL_BUILD_DIR) --syslibdir=$(MUSL_BUILD_DIR)
+
+musl: build/musl/config.mak
+	cd build/musl && make -j8 && make install
+
+build/musl/bin/musl-gcc: musl
+	cd build/musl &&\
+	make obj/musl-gcc &&\
+	make $(MUSL_BUILD_DIR)/bin/musl-gcc &&\
+	make lib/musl-gcc.specs &&\
+	sed -i 's/ crtbeginS.o%s//g; s/crtendS.o%s //g' -i lib/musl-gcc.specs &&\
+	cp lib/libm.a lib/libg.a

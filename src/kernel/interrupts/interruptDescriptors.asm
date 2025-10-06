@@ -10,11 +10,7 @@ global interruptStack
 interruptStack: resb 1024
 
 interruptReturn:
-  pop ebp
-  pop edx
-  pop ecx
-  pop ebx
-  pop eax
+  popa
   ret
 
 exceptionAbort:
@@ -23,7 +19,6 @@ exceptionAbort:
   je $
   mov ecx, 0x500000
   mov cr3, ecx
-  push ebp
   call onException
   mov eax, [temporaryESP]
   mov esp, eax
@@ -32,24 +27,22 @@ exceptionAbort:
 
 handleInterrupt:
 .saveRegisters:
-  push eax
-  push ebx
-  push ecx
-  push edx
+  pusha
   mov ecx, cr3
   push ecx
   mov ecx, cr2
   push ecx
 .checkException:
-  mov eax, [esp+24]
+  mov eax, [esp+44]
   cmp eax, 31
   jng exceptionAbort
 .goToKernelPages:
   mov eax, 0x500000
   mov cr3, eax
-  push ebp
   call onInterrupt
-  add esp, 36
+  pop eax
+  pop eax
+  popa
   iret
 
 

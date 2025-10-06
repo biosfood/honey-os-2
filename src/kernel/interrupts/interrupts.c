@@ -29,8 +29,7 @@ extern File interrupt_files[256];
 extern ProcessThread *current_thread;
 extern uint32_t interruptReturn;
 
-void onInterrupt(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
-                 uint32_t b, uint32_t a, uint32_t intNo, uint32_t errorCode,
+void onInterrupt(void *cr2, void *cr3, uint32_t edi, uint32_t esi, uint32_t ebp, uint32_t _esp, uint32_t ebx, uint32_t edx, uint32_t ecx, uint32_t eax, uint32_t intNo, uint32_t errorCode,
                  uint32_t eip, uint32_t cs, uint32_t eflags, uint32_t esp) {
     uint32_t data = '1';
     File *file = &interrupt_files[intNo];
@@ -42,7 +41,7 @@ void onInterrupt(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
     return;
     // TODO: make sure there actually is enough space on the stack here....
     uint32_t newStack[] = {
-        U32(&interruptReturn), U32(ebp), d, c, b, a, eip,
+        U32(&interruptReturn), edi, esi, ebp, U32(current_thread->esp) + 4, ebx, edx, ecx, eax, eip,
     };
     current_thread->esp = PTR(esp) - sizeof(newStack);
     current_thread->function = 0;
@@ -54,8 +53,7 @@ void onInterrupt(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
            sizeof(newStack));
 }
 
-void onException(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
-                 uint32_t b, uint32_t a, uint32_t intNo, uint32_t errorCode,
+void onException(void *cr2, void *cr3, uint32_t edi, uint32_t esi, uint32_t ebp, uint32_t _esp, uint32_t ebx, uint32_t edx, uint32_t ecx, uint32_t eax, uint32_t intNo, uint32_t errorCode,
                  uint32_t eip, uint32_t cs, uint32_t eflags, uint32_t esp) {
     if (intNo == 0x0E && errorCode == 7) {
         // page-protection violation, write access and in usermode
@@ -128,7 +126,7 @@ void onException(void *ebp, void *cr2, void *cr3, uint32_t d, uint32_t c,
 resume:
     // TODO: make sure there actually is enough space on the stack here....
     uint32_t newStack[] = {
-        U32(&interruptReturn), U32(ebp), d, c, b, a, eip,
+        U32(&interruptReturn), edi, esi, ebp, 0, ebx, edx, ecx, eax, eip,
     };
     current_thread->esp = PTR(esp) - sizeof(newStack);
     current_thread->function = 0;

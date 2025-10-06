@@ -7,21 +7,30 @@
   <component name="CMakePythonSetting">
     <option name="pythonIntegrationState" value="YES" />
   </component>
+  <component name="CidrRootsConfiguration">
+    <sourceRoots>
+      <file path="$PROJECT_DIR$/src" />
+    </sourceRoots>
+    <libraryRoots>
+      <file path="$PROJECT_DIR$/musl" />
+    </libraryRoots>
+  </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />
   <component name="MakefileSettings">
     <option name="linkedExternalProjectsSettings">
       <MakefileProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/src/userland" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$/build/musl" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$/src/userland" />
+            <option value="$PROJECT_DIR$/build/musl" />
           </set>
         </option>
         <option name="version" value="2" />
       </MakefileProjectSettings>
     </option>
   </component>
-  <component name="MakefileWorkspace" PROJECT_DIR="$PROJECT_DIR$/src/userland">
+  <component name="MakefileWorkspace" PROJECT_DIR="$PROJECT_DIR$/build/musl">
     <contentRoot DIR="$PROJECT_DIR$" />
   </component>
+  <component name="WestSettings">{}</component>
 </project>

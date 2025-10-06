@@ -6,3 +6,4 @@ rootfs/initrd.tar
 *.log
 initrd
 bochsrc
+.idea

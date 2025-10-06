@@ -53,7 +53,7 @@ $(BUILD_FOLDER)/%.s.o: %.s
 	@mkdir -p $(dir $@)
 	@$(CC) $(CCFLAGS) -r $< -o $@
 
-userPrograms: initrd
+userPrograms: initrd build/musl/bin/musl-gcc
 	@echo 'making user programs'
 	@make --silent -C src/userland
 
@@ -69,10 +69,10 @@ MUSL_BUILD_DIR := $(abspath build/musl)
 build/musl/config.mak: build
 	cd build/musl && ../../musl/configure --target=i386-elf --enable-debug --disable-shared --exec-prefix=$(MUSL_BUILD_DIR) --prefix=$(MUSL_BUILD_DIR) --syslibdir=$(MUSL_BUILD_DIR)
 
-musl: build/musl/config.mak
+musl-lib: build/musl/config.mak
 	cd build/musl && make -j8 && make install
 
-build/musl/bin/musl-gcc: musl
+build/musl/bin/musl-gcc: musl-lib
 	cd build/musl &&\
 	make obj/musl-gcc &&\
 	make $(MUSL_BUILD_DIR)/bin/musl-gcc &&\

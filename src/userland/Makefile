@@ -1,7 +1,7 @@
-CC = i686-elf-gcc
-CCFLAGS = -m32 -mtune=generic -ffreestanding -nostdlib -c -I ../include -Wno-discarded-qualifiers -fms-extensions -Wno-shift-count-overflow -O0 -Wno-div-by-zero -g
-LD = i686-elf-ld
-LD_FLAGS = -z max-page-size=0x1000 -T link.ld --no-warn-rwx-segment
+CC = ../../build/musl/bin/musl-gcc
+CCFLAGS = -m32 -mtune=generic -c -Wno-discarded-qualifiers -fms-extensions -Wno-shift-count-overflow -O0 -g
+LD = ../../build/musl/bin/musl-gcc
+LD_FLAGS = -z max-page-size=0x1000
 AS = nasm
 ASFlAGS = -felf32
 
@@ -26,9 +26,9 @@ clean:
 
 define MAKE_PROGRAM
 
-../../initrd/bin/$(1): $(2) ../../build/hlib.a
-	@echo "linking $(1) from $$^"
-	@$(LD) $(LD_FLAGS) -o $$@ $$^
+../../initrd/bin/$(1): $(2) ../../build/musl/lib/libc.a
+	@echo "linking $(1) from $(2)"
+	@$(LD) $(LD_FLAGS) -o $$@ $(2)
 
 build/$(1)/%.c.o: $(1)/%.c
 	@echo "compiling '$$<' to '$$@' for $(1)"

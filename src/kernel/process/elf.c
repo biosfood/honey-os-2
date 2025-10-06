@@ -1,7 +1,14 @@
 #include "elf.h"
 #include <process.h>
 
-void build_starting_stack(ProcessThread *thread, void *start_position) {
+// You'll need to define the AT_* values. They are standard in <elf.h>.
+#define AT_NULL   0  /* End of vector */
+#define AT_PHDR   3  /* Phdr base address */
+#define AT_PHNUM  5  /* Number of phdrs */
+#define AT_PHENT  4  /* Size of one phdr */
+
+void build_starting_stack(ProcessThread *thread, void *start_position,
+    uintptr_t phdr_vaddr, int phnum, int phentsize) {
     Process *process = thread->process;
     // build the initial stack, for starters just with a single page
     PhysicalMemoryEntry *physical = get_single_page_physical_memory_entry();
@@ -25,12 +32,57 @@ void build_starting_stack(ProcessThread *thread, void *start_position) {
     listAdd(&virtual->mappings, mapping);
     listAdd(&process->virtual_memory_entries, virtual);
 
-    void *esp = mapTemporaryA(physical->physical);
-    esp += 0x1000 - 0x10;
-    *(void **)esp = start_position;
-    *(void **)(esp + 0x4) = &runEnd;
+    char *stack_ptr = (char *)mapTemporaryA(physical->physical) + 4096;
 
-    thread->esp = virtual->virtual + 4096 * 2048 - 0x10;
+    // first argument to argv: program name, stored on the stack
+    const char *prog_name = "/init";
+    uint32_t name_len = strlen(prog_name) + 1;
+    stack_ptr -= name_len;
+    memcpy(prog_name, stack_ptr, name_len);
+    char *user_prog_name_ptr =
+        (char *)(virtual->virtual + virtual->size - name_len);
+
+    stack_ptr = (char *)((uintptr_t)stack_ptr & -16L);
+
+    // Push the Auxiliary Vector (auxv).
+    stack_ptr -= sizeof(uintptr_t);
+    *(uintptr_t *)stack_ptr = 0;
+    stack_ptr -= sizeof(uintptr_t);
+    *(uintptr_t *)stack_ptr = AT_NULL;
+    stack_ptr -= sizeof(uintptr_t);
+    *(uintptr_t *)stack_ptr = phentsize;
+    stack_ptr -= sizeof(uintptr_t);
+    *(uintptr_t *)stack_ptr = AT_PHENT;
+    stack_ptr -= sizeof(uintptr_t);
+    *(uintptr_t *)stack_ptr = phnum;
+    stack_ptr -= sizeof(uintptr_t);
+    *(uintptr_t *)stack_ptr = AT_PHNUM;
+    stack_ptr -= sizeof(uintptr_t);
+    *(uintptr_t *)stack_ptr = phdr_vaddr;
+    stack_ptr -= sizeof(uintptr_t);
+    *(uintptr_t *)stack_ptr = AT_PHDR;
+
+    // envp (NULL).
+    stack_ptr -= sizeof(char *);
+    *(char **)stack_ptr = NULL;
+
+    // Push argv.
+    stack_ptr -= sizeof(char *);
+    *(char **)stack_ptr = NULL; // argv[1]
+    stack_ptr -= sizeof(char *);
+    *(char **)stack_ptr = user_prog_name_ptr; // argv[0]
+
+    // Push argc.
+    stack_ptr -= sizeof(int);
+    *(int *)stack_ptr = 1;
+
+    // start position: kernel will RET as the last step for startup
+    stack_ptr -= sizeof(void *);
+    *(void **)stack_ptr = start_position;
+
+    uintptr_t final_offset =
+        ((char *)mapTemporaryA(physical->physical) + 4096) - stack_ptr;
+    thread->esp = virtual->virtual + virtual->size - final_offset;
 }
 extern void *functionsStart;
 extern void *functionsEnd;
@@ -51,9 +103,10 @@ ProcessThread *processLoadELF(Process *process, void *file_data) {
 
     // reserve first few pages to hopefully catch NULL pointers correctly
     reservePagesCount(&(process->memory_information), 0, 0x10);
+    uintptr_t phdr_virtual = 0;
     for (uint32_t i = 0; i < header->programHeaderEntryCount; i++) {
-        if (programHeader->segmentType != 1) {
-            continue;
+        if ((programHeader->segmentType == 6 || programHeader->dataOffset == 0) && !phdr_virtual) {
+            phdr_virtual = programHeader->virtualAddress + header->programHeaderTablePosition;
         }
         if (programHeader->segmentMemorySize == 0) {
             continue;
@@ -69,9 +122,10 @@ ProcessThread *processLoadELF(Process *process, void *file_data) {
         PhysicalMemoryEntry *physical_memory_entry =
             get_single_page_physical_memory_entry();
         void *mapped = mapTemporaryA(physical_memory_entry->physical);
+        memset(mapped, 0, 0x1000);
         memcpy(file_data + programHeader->dataOffset,
                mapped + (programHeader->virtualAddress & 0xFFF),
-               0x1000 - (programHeader->virtualAddress & 0xFFF));
+               MIN(0x1000 - (programHeader->virtualAddress & 0xFFF), programHeader->segmentFileSize));
         MAP(virtual, physical_memory_entry, PTR(programHeader->virtualAddress));
         for (uint32_t page = 0x1000; page < programHeader->segmentMemorySize;
              page += 0x1000) {
@@ -93,7 +147,8 @@ ProcessThread *processLoadELF(Process *process, void *file_data) {
     thread->process = process;
     listAdd(&process->threads, thread);
     thread->function = 0;
-    build_starting_stack(thread, PTR(header->entryPosition));
+
+    build_starting_stack(thread, PTR(header->entryPosition), phdr_virtual, header->programHeaderEntryCount, header->programHeaderEntrySize);
 
     foreach (
         process->virtual_memory_entries, VirtualMemoryEntry *,

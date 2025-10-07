@@ -64,4 +64,5 @@ void handleMunmapSyscall(const ProcessThread *thread) {
     const uint32_t address = thread->parameters[0];
     const uint32_t virtualPageId = PAGE_ID(address);
     giveUpPage(&thread->process->memory_information, virtualPageId);
+    listAdd(&threads_to_process, thread);
 }

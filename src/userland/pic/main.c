@@ -1,8 +1,11 @@
-#include <fnctl.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #define OFFSET 0x20
 
@@ -73,6 +76,8 @@ void *handler(void *param) {
 
 
 int main(char **argv, int argc) {
+    // currently needed as there is a bug breaking free() with multitasking...
+    malloc(1);
     mkdir("/dev/pic", 0);
 
     control_master_fd = open("/dev/port/0x20", 0);
@@ -92,8 +97,9 @@ int main(char **argv, int argc) {
     d = 0x20;
     write(control_master_fd, &d, 1);
     write(control_slave_fd, &d, 1);
-    for (uint8_t i = 0; i < 16; i++) {
+    for (uint8_t i = 0; i < 15; i++) {
         pthread_create(NULL, NULL, handler, (void*)(uintptr_t)i);
     }
+    handler((void*)(uintptr_t)16);
     // TODO: join all threads
 }

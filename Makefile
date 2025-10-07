@@ -3,7 +3,7 @@ IMAGE_FILE = /run/user/1000/honey-os.img
 export CC=i686-elf-gcc
 export AR=i686-elf-ar
 export RANLIB=i686-elf-ranlib
-CCFLAGS = -m32 -mtune=generic -ffreestanding -nostdlib -c -I src/include -I src/kernel/include -Wno-discarded-qualifiers -fms-extensions -Wno-shift-count-overflow -O0 -g
+CCFLAGS = -m32 -mtune=generic -ffreestanding -nostdlib -c -I src/include -I src/kernel/include -Wno-discarded-qualifiers -fms-extensions -Wno-shift-count-overflow -O0 -g -Ibuild/musl/include
 LD = i686-elf-ld
 LD_FLAGS = -z max-page-size=0x1000 -T link.ld
 AS = nasm
@@ -16,7 +16,7 @@ BUILD_FOLDER = build
 SOURCE_FILES := $(shell find src/kernel -name *.c -or -name *.asm -or -name *.s)
 OBJS := $(SOURCE_FILES:%=$(BUILD_FOLDER)/%.o)
 
-run: build hlib userPrograms $(IMAGE_FILE)
+run: build userPrograms $(IMAGE_FILE)
 	@echo "starting qemu"
 	@$(EMU) $(EMUFLAGS)
 
@@ -56,9 +56,6 @@ $(BUILD_FOLDER)/%.s.o: %.s
 userPrograms: initrd build/musl/bin/musl-gcc
 	@echo 'making user programs'
 	@make --silent -C src/userland
-
-hlib: initrd
-	@make --silent -C src/hlib
 
 clean:
 	@echo "clearing build folder"

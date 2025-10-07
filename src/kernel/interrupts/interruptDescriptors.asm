@@ -16,6 +16,7 @@ interruptReturn:
 exceptionAbort:
   mov ebx, [esp+24]
   cmp ecx, 0x500000
+  ; kernel fault, nothing to do, as everything has failed (for now)
   je $
   mov ecx, 0x500000
   mov cr3, ecx
@@ -33,25 +34,16 @@ handleInterrupt:
   mov ecx, cr2
   push ecx
 .checkException:
-  mov eax, [esp+44]
+  mov eax, [esp+40]
   cmp eax, 31
   jng exceptionAbort
 .goToKernelPages:
   mov eax, 0x500000
   mov cr3, eax
   call onInterrupt
-  pop eax
-  pop eax
+  add esp, 16
   popa
   iret
-
-
-
-
-  mov eax, [temporaryESP]
-  mov esp, eax
-  pop ebp
-  ret
 
 %macro interruptHandler 1
   ALIGN 4

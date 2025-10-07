@@ -116,7 +116,7 @@ ProcessThread *processLoadELF(Process *process, void *file_data) {
         virtual->process = process;
         virtual->type = MEM_TYPE_PROGRAM_DATA;
         virtual->mappings = NULL;
-        virtual->size = programHeader->segmentMemorySize;
+        virtual->size = MAX(programHeader->segmentMemorySize, 0x1000);
         listAdd(&process->virtual_memory_entries, virtual);
 
         PhysicalMemoryEntry *physical_memory_entry =

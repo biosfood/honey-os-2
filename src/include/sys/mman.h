@@ -16,8 +16,8 @@ extern int munmap(void *addr, size_t len);
 #define PROT_READ 4
 #define PROT_WRITE 8
 
-#define MAP_ANON 1
-#define MAP_ANONYMOUS 1
+#define MAP_ANON 0x20
+#define MAP_ANONYMOUS MAP_ANON
 #define MAP_FIXED 2
 #define MAP_PRIVATE 4
 #define MAP_SHARED 8

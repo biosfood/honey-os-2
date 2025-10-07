@@ -1,6 +1,8 @@
 #include "process.h"
 
+#include <stddef.h>
 #include <vfs.h>
+#include <fcntl.h>
 
 FileSystem interrupt_file_system;
 

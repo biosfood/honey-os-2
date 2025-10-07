@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../kernel/memory/malloc.h"
+#include "../memory/malloc.h"
 
 #define ADDRESS(pageId) PTR((pageId) << 12)
 #define PAGE_ID(address) (U32(address) >> 12)

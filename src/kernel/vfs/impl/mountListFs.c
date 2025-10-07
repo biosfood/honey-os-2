@@ -1,7 +1,9 @@
-#include "fnctl.h"
+#include <fcntl.h>
 #include "process.h"
 
 #include <stddef.h>
+#include <stddef.h>
+#include <fcntl.h>
 
 #include <mountlistfs.h>
 #include <vfs.h>

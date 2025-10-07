@@ -4,6 +4,7 @@
 
 #include "process.h"
 
+#include <stddef.h>
 #include <vfs.h>
 
 ListElement *port_files;

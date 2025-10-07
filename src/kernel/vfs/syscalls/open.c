@@ -40,7 +40,6 @@ void handleOpenSyscall(ProcessThread *thread) {
         state->stage = OPEN_POST;
         // fallthrough
     case OPEN_POST:
-    post:
         if (state->file == NULL) {
             thread->returnValue = -1;
         } else {

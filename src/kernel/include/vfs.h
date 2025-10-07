@@ -47,10 +47,6 @@ typedef enum FileOperationStatus {
     FILE_OPERATION_WILL_SCHEDULE = 1,
 } FileOperationStatus;
 
-#define S_IFSOCK FILE_TYPE_SOCKET
-#define S_IFLNK FILE_TYPE_LINK
-#define S_IFREG FILE_TYPE_FILE
-
 // A file describes all the metadata for a file in a file system
 // File structs pointing to the same file should be considered equal
 // linux equivalent is an inode

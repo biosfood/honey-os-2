@@ -3,6 +3,7 @@
 //
 
 #include <process.h>
+#include <stddef.h>
 #include <vfs.h>
 
 typedef struct {

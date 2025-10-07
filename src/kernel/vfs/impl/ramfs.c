@@ -111,7 +111,7 @@ void ramfs_write(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
 }
 
 void fill_dirent(FillDirData *buf, char *name, int file_type) {
-    uint32_t entry_size = sizeof(posix_dirent) + strlen(name) + 1;
+    uint32_t entry_size = sizeof(struct posix_dent) + strlen(name) + 1;
     if (buf->current_offset + entry_size < buf->offset) {
         buf->current_offset += entry_size;
         return;
@@ -119,7 +119,7 @@ void fill_dirent(FillDirData *buf, char *name, int file_type) {
     if (buf->current_offset > buf->offset + buf->size) {
         return;
     }
-    posix_dirent *dirent = malloc(entry_size);
+    struct posix_dent *dirent = malloc(entry_size);
     dirent->d_ino =
         U32(name); // just needs to be unique, and in ramfs, the address of the
                    // filename is unique for each file...
@@ -177,7 +177,7 @@ uint32_t ramFsGetattr(RamFsFile *file, struct stat *buf) {
     if (file->type == FILE_TYPE_DIRECTORY) {
         uint32_t size = 0;
         foreach (file->data, RamFsFile *, child,
-                 { size += sizeof(posix_dirent) + strlen(child->name) + 1; })
+                 { size += sizeof(struct posix_dent) + strlen(child->name) + 1; })
             ;
         buf->st_size = size;
     } else {

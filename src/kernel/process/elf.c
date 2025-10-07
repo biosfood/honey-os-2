@@ -1,5 +1,6 @@
 #include "elf.h"
 #include <process.h>
+#include <stddef.h>
 
 // You'll need to define the AT_* values. They are standard in <elf.h>.
 #define AT_NULL   0  /* End of vector */

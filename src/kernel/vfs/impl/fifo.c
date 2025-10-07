@@ -1,4 +1,5 @@
 #include <process.h>
+#include <stddef.h>
 
 // this file provides the standard implementation for FIFO files.
 // most vfs implementations should use these functions for all FIFO files.

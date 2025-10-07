@@ -1,4 +1,5 @@
 #include <process.h>
+#include <stddef.h>
 
 VirtualMemoryEntry *process_map_memory_simple(Process *process,
                                               PhysicalMemoryEntry *physical,

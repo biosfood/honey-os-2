@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../kernel/memory/malloc.h"
+#include "../memory/malloc.h"
 
 #define U32(x) (uint32_t)(uintptr_t)(x)
 #define PTR(x) (void *)(uintptr_t)(x)

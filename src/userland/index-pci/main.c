@@ -4,13 +4,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <fnctl.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-#include <hlib.h>
+#include "../list.h"
+#include <dirent.h>
+#include <fcntl.h>
 
 #define GET_HEADER                                                             \
     if (!initialized) {                                                        \
@@ -52,8 +52,6 @@ char *classNames[] = {
 };
 
 bool checkedBuses[256];
-
-uint32_t deviceCount = 0;
 
 ListElement *pciDevices = NULL;
 bool initialized = false;
@@ -177,23 +175,22 @@ void initializePci() {
             checkBus(bus);
         }
     }
-    deviceCount = listCount(pciDevices);
     initialized = true;
 }
 
 void main() {
+    malloc(1);
     config_address_fd = open("/dev/port/3320", 0);
     config_data_fd = open("/dev/port/3324", 0);
-    printf("indexing PCI bus...\n");
     mkdir("/dev/pci", 0);
     initializePci();
 
     int pcidevs = open("/dev/pci", 0);
     struct stat stat;
     fstat(pcidevs, &stat);
-    posix_dirent *data = malloc(stat.st_size);
+    struct posix_dent *data = malloc(stat.st_size);
     int len = read(pcidevs, data, stat.st_size);
-    posix_dirent *current = data;
+    struct posix_dent *current = data;
     char *filename = NULL;
     while (len) {
         if (!current->d_reclen) {

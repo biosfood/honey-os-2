@@ -1,11 +1,12 @@
 #include <dirent.h>
-#include <fnctl.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <stdint.h>
 
 int main() {
     mkdir("/dev", 0);
@@ -19,14 +20,20 @@ int main() {
     // reassign STDIN
     close(STDIN_FILENO);
     open("/dev/serin", 0);
-    printf("Hello World!\n");
 
-    pid_t pid = fork();
-    if (!pid) {
-        execv("/bin/serial", NULL);
+    char *args[] = {0};
+    if (!fork()) {
+        execv("/bin/serial", args);
     }
-    char *filename;
-    asprintf(&filename, "/proc/%i/exe", pid);
+    if (!fork()) {
+        execv("/bin/pic", args);
+    }
+    if (!fork()) {
+        execv("/bin/index-pci", NULL);
+    }
+
+    printf("Hello World!\n");
+    char *filename = "/proc/4/exe";
     int fd = open(filename, O_SYMLINK);
     struct stat stat;
     fstat(fd, &stat);
@@ -36,21 +43,11 @@ int main() {
     free(data);
     close(fd);
 
-    pid = fork();
-    if (!pid) {
-        execv("/bin/pic", NULL);
-    }
-    pid = fork();
-    if (!pid) {
-        execv("/bin/index-pci", NULL);
-    }
-
     const int messageFile = open("/dev/cpuid/0", 0);
 
     uint32_t cpuidMessage[4];
     read(messageFile, cpuidMessage, 16);
     close(messageFile);
-    printf("Hello World!\n");
     printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
 
     char buf;

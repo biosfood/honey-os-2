@@ -84,6 +84,10 @@ typedef struct ProcessThread {
     uint32_t returnValue;
     void *esp;
     bool run;
+    // to be used as the thread pointer.
+    // Since this register is not writable from ring 3, this needs to be set from the kernel, so it is stored here.
+    // Normally, user programs should assume all registers to be clobbered by a syscall but this one cannot be restored otherwise.
+    uint32_t thread_pointer_gs;
     uint32_t threadProcessingState[8];
 } ProcessThread;
 

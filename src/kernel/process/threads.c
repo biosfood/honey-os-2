@@ -17,7 +17,14 @@ void handlePthreadCreateSyscall(ProcessThread *thread) {
     // TODO: here, this should behave as pthread_exit, the main() thread exit
     // must behave as exit()
     new_thread->run = true;
+    new_thread->thread_pointer_gs = thread->thread_pointer_gs;
     listAdd(&threads_to_process, new_thread);
+    thread->returnValue = 0;
+    listAdd(&threads_to_process, thread);
+}
+
+void handleSetThreadPointerSyscall(ProcessThread *thread) {
+    thread->thread_pointer_gs = thread->parameters[0];
     thread->returnValue = 0;
     listAdd(&threads_to_process, thread);
 }

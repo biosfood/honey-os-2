@@ -38,6 +38,7 @@ void handleForkSyscall(ProcessThread *thread) {
     new_thread->function = 0;
     new_thread->esp = thread->esp;
     new_thread->run = true;
+    new_thread->thread_pointer_gs = thread->thread_pointer_gs;
 
     foreach (
         thread->process->virtual_memory_entries, VirtualMemoryEntry *,

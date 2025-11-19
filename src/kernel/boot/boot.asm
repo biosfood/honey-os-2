@@ -116,6 +116,7 @@ section .sharedFunctions
 tss:
   resb 0x68
 ALIGN 4
+
 newGDT:
 .start:
 	dq 0
@@ -148,7 +149,19 @@ newGDT:
 	db 11001111b
 	db 0
 .tss:
-  resb 0x8
+    dw 0
+    dw 0
+    db 0
+    db 10001001b ; Type: 32-bit TSS (Available)
+    db 00000000b
+    db 0
+.tls:
+    dw 0xffff
+    dw 0x0000
+    db 0x00
+    db 11110010b
+    db 11001111b
+    db 0x00
 .end:
     dw .end - .start - 1
     dd .start

@@ -61,6 +61,7 @@ extern uintptr_t handleStatSyscall;
 extern uintptr_t handleCreateFileSyscall;
 extern uintptr_t handleMmapSyscall, handleMunmapSyscall;
 extern uintptr_t handleExecSyscall;
+extern uintptr_t handleSetThreadPointerSyscall;
 
 void (*syscallHandlers[])(ProcessThread *) = {
     0,
@@ -98,14 +99,51 @@ void (*syscallHandlers[])(ProcessThread *) = {
     (void *) &handleCloseSyscall,
     (void *) &handleStatSyscall,
     (void *) &handleExecSyscall,
+    (void *) &handleSetThreadPointerSyscall,
 };
 
 extern uint32_t thread_return_value, thread_cr3, thread_esp;
 
 extern void (runFunction)();
 
+// The GDT entry structure (packed is crucial)
+struct gdt_entry {
+    uint16_t limit_low;
+    uint16_t base_low;
+    uint8_t  base_middle;
+    uint8_t  access;
+    uint8_t  granularity;
+    uint8_t  base_high;
+} __attribute__((packed));
+
+// defined in ASM
+extern struct gdt_entry newGDT[];
+
+// 0x30 is the offset of our TLS entry in the GDT (Index 6 * 8 bytes)
+#define GDT_TLS_INDEX 6
+#define TLS_SELECTOR  (0x30 | 3) // Index 6, RPL 3 (User)
+
+void set_thread_area_32(uint32_t tp) {
+    uint32_t base = tp;
+    struct gdt_entry *tls_entry = &newGDT[GDT_TLS_INDEX];
+
+    // Encode the pointer into the GDT entry split fields
+    tls_entry->base_low    = base & 0xFFFF;
+    tls_entry->base_middle = (base >> 16) & 0xFF;
+    tls_entry->base_high   = (base >> 24) & 0xFF;
+
+    // We must reload the segment register for the CPU to cache the new base.
+    // If we are in kernel mode, we can load it now.
+    // If we are returning to userspace, the `iret` or `sysexit` flow
+    // must ensure gs is loaded with TLS_SELECTOR.
+
+    // For kernel access to user TLS (optional, but good for debugging):
+    asm volatile("mov %0, %%gs" :: "r"(TLS_SELECTOR));
+}
+
 void processThread(ProcessThread *thread) {
     if (thread->run) {
+        set_thread_area_32(thread->thread_pointer_gs);
         thread_return_value = thread->returnValue;
         thread_esp = U32(thread->esp);
         thread_cr3 = U32(thread->process->cr3);

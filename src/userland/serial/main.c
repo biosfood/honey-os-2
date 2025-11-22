@@ -55,6 +55,11 @@ void main() {
     data = 0x0B;
     write(mcr, &data, 1);
 
+    close(ier);
+    close(irr);
+    close(lcr);
+    close(mcr);
+
     pthread_create(NULL, NULL, readLoop, NULL);
     while (1) {
         const int32_t count = read(fd, buffer, 1024);

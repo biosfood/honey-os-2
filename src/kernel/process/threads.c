@@ -7,19 +7,11 @@ void handlePthreadCreateSyscall(ProcessThread *thread) {
     new_thread->process = thread->process;
     listAdd(&(thread->process->threads), new_thread);
     new_thread->function = 0;
-    new_thread->esp = malloc(0x1000);
-    sharePage(&new_thread->process->memory_information, new_thread->esp,
-              new_thread->esp);
-    new_thread->esp += 0x1000 - 0x10;
-    *(void **)new_thread->esp = PTR(thread->parameters[2]);
-    *(void **)(new_thread->esp + 0x8) = PTR(thread->parameters[3]);
-    *(void **)(new_thread->esp + 0x4) = &runEnd;
-    // TODO: here, this should behave as pthread_exit, the main() thread exit
-    // must behave as exit()
+    new_thread->esp = PTR(thread->parameters[0]);
+    new_thread->thread_pointer_gs = thread->parameters[1];
     new_thread->run = true;
-    new_thread->thread_pointer_gs = thread->thread_pointer_gs;
     listAdd(&threads_to_process, new_thread);
-    thread->returnValue = 0;
+    thread->returnValue = new_thread->id;
     listAdd(&threads_to_process, thread);
 }
 

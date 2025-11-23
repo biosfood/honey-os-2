@@ -62,6 +62,7 @@ FileOperationStatus ram_fs_get(FileSystem *file_system, char *path,
         path++;
         current_dir = found_file;
     }
+    return FILE_OPERATION_WILL_SCHEDULE;
 }
 
 int ramFsCreate(File *directory, char *name, enum FileType type) {

@@ -20,7 +20,6 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
         *result = NULL;
         return FILE_OPERATION_DONE;
     }
-    // TODO: self: symlink to proc of current thread.
     if (!filename[1]) {
         *result = &fs->rootdir;
         return FILE_OPERATION_DONE;
@@ -45,6 +44,8 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
     }
     if (stringEquals(filename, "exe")) {
         *result = (void *)&process->process_files[PROC_FILE_EXECUTABLE];
+    } else if (stringEquals(filename, "signal")) {
+        *result = (void *)&process->process_files[PROC_FILE_SIGNAL];
     } else {
         *result = NULL;
     }
@@ -54,6 +55,9 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
 void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
                  struct ProcessThread *thread,
                  struct FileDescriptor *descriptor, uint32_t *bytes_read) {
+    if (file->type == FILE_TYPE_FIFO) {
+        return fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
+    }
     switch (file->file_type) {
     case PROC_FILE_EXECUTABLE:
         if (offset > file->length) {
@@ -73,12 +77,22 @@ void procfs_getattr(ProcessFile *file, struct stat *stbuf) {
     stbuf->st_size = file->length;
 }
 
+void procfs_write(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
+                 struct ProcessThread *thread,
+                 struct FileDescriptor *descriptor, uint32_t *bytes_written) {
+    if (file->type == FILE_TYPE_FIFO) {
+        fifo_write((File *)file, data, size, bytes_written, thread);
+        return;
+    }
+}
+
+
 FileSystemType procfs_type = {
     .getFile = (void *)procfs_get,
     .create = NULL,
     .getattr = (void *)procfs_getattr,
     .read = (void *)procfs_read,
-    .write = NULL,
+    .write = (void*)procfs_write,
 };
 
 FileSystem *create_process_fs(struct Container *container) {
@@ -108,4 +122,11 @@ void initialize_proc_files(Process *process, char *exe) {
     process->process_files[PROC_FILE_EXECUTABLE].file_type =
         PROC_FILE_EXECUTABLE;
     process->process_files[PROC_FILE_EXECUTABLE].type = FILE_TYPE_SYMLINK;
+
+    process->process_files[PROC_FILE_SIGNAL].process = process;
+    process->process_files[PROC_FILE_SIGNAL].type = FILE_TYPE_FIFO;
+    process->process_files[PROC_FILE_SIGNAL].length = 0;
+    process->process_files[PROC_FILE_SIGNAL].data = NULL;
+    process->process_files[PROC_FILE_SIGNAL].file_descriptors = NULL;
+    process->process_files[PROC_FILE_SIGNAL].file_type = PROC_FILE_SIGNAL;
 }

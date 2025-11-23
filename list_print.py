@@ -6,6 +6,7 @@ type_map = {
         "virtual_memory_entries": "VirtualMemoryEntry",
         "open_file_handles": "FileDescriptor",
         "openFileHandles": "FileDescriptor",
+        "threads": "ProcessThread",
     },
     "struct VirtualMemoryEntry": {
         "mappings": "MemoryMapping",

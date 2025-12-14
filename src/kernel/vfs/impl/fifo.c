@@ -9,34 +9,34 @@ typedef struct {
     void *data;
 } PipeData;
 
-void fifo_write_descriptor(FileDescriptor *descriptor, void *write_data,
+void fifo_write_descriptor(FiFoData *fifo_data, void *write_data,
                            uint32_t len) {
-    if (descriptor->fifo_data.thread) {
-        uint32_t bytes_to_transfer = MIN(len, descriptor->fifo_data.len);
-        memcpy(write_data, descriptor->fifo_data.write_data, bytes_to_transfer);
-        listAdd(&threads_to_process, descriptor->fifo_data.thread);
-        if (bytes_to_transfer < descriptor->fifo_data.len) {
+    if (fifo_data->thread) {
+        uint32_t bytes_to_transfer = MIN(len, fifo_data->len);
+        memcpy(write_data, fifo_data->write_data, bytes_to_transfer);
+        listAdd(&threads_to_process, fifo_data->thread);
+        if (bytes_to_transfer < fifo_data->len) {
             PipeData *entry = malloc(sizeof(PipeData));
             entry->length = len - bytes_to_transfer;
             entry->data = malloc(entry->length);
             memcpy(write_data + bytes_to_transfer, entry->data, entry->length);
-            listAdd(&descriptor->fifo_data.queue, entry);
+            listAdd(&fifo_data->queue, entry);
         }
-        descriptor->fifo_data.thread = NULL;
-        *descriptor->fifo_data.bytes_read = bytes_to_transfer;
+        fifo_data->thread = NULL;
+        *fifo_data->bytes_read = bytes_to_transfer;
     } else {
         PipeData *entry = malloc(sizeof(PipeData));
         entry->length = len;
         entry->data = malloc(len);
         memcpy(write_data, entry->data, len);
-        listAdd(&descriptor->fifo_data.queue, entry);
+        listAdd(&fifo_data->queue, entry);
     }
 }
 
 void fifo_write(File *file, void *write_data, uint32_t len,
                 uint32_t *bytes_written, ProcessThread *thread) {
     foreach (file->file_descriptors, FileDescriptor *, file_descriptor,
-             { fifo_write_descriptor(file_descriptor, write_data, len); })
+             { fifo_write_descriptor(&file_descriptor->fifo_data, write_data, len); })
         ;
     *bytes_written = len;
     if (thread) {

@@ -7,7 +7,7 @@
 #include <vfs.h>
 
 typedef struct {
-    FileSystem;
+    struct FileSystem;
     Container *container;
     File rootdir;
     File self_link;

@@ -3,7 +3,7 @@ IMAGE_FILE = /run/user/1000/honey-os.img
 export CC=i686-elf-gcc
 export AR=i686-elf-ar
 export RANLIB=i686-elf-ranlib
-CCFLAGS = -m32 -mtune=generic -ffreestanding -nostdlib -c -I src/include -I src/kernel/include -Wno-discarded-qualifiers -fms-extensions -Wno-shift-count-overflow -O0 -g -Ibuild/musl/include
+CCFLAGS = -m32 -mtune=generic -ffreestanding -nostdlib -c -I src/include -I src/kernel/include -Wno-discarded-qualifiers -fms-extensions -Wno-shift-count-overflow -O0 -g -Ibuild/musl/include -std=gnu11
 LD = i686-elf-ld
 LD_FLAGS = -z max-page-size=0x1000 -T link.ld
 AS = nasm
@@ -43,7 +43,7 @@ $(BUILD_FOLDER)/%.asm.o: %.asm
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFlAGS) $< -o $@
 
-$(BUILD_FOLDER)/%.c.o: %.c
+$(BUILD_FOLDER)/%.c.o: %.c build/musl/bin/musl-gcc
 	@echo "compiling $<"
 	@mkdir -p $(dir $@)
 	@$(CC) $(CCFLAGS) -r $< -o $@
@@ -64,7 +64,7 @@ clean:
 export CROSS_COMPILE=i386-elf-
 MUSL_BUILD_DIR := $(abspath build/musl)
 build/musl/config.mak: build
-	cd build/musl && ../../musl/configure --target=i386-elf --enable-debug --disable-shared --exec-prefix=$(MUSL_BUILD_DIR) --prefix=$(MUSL_BUILD_DIR) --syslibdir=$(MUSL_BUILD_DIR)
+	cd build/musl && ../../../musl/configure --target=i386-elf --enable-debug --disable-shared --exec-prefix=$(MUSL_BUILD_DIR) --prefix=$(MUSL_BUILD_DIR) --syslibdir=$(MUSL_BUILD_DIR)
 
 musl-lib: build/musl/config.mak
 	cd build/musl && make -j8 && make install

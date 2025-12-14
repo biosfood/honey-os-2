@@ -124,7 +124,7 @@ enum ProcFiles {
 };
 
 typedef struct {
-    File;
+    struct File;
     struct Process *process;
     enum ProcFiles file_type;
     uint32_t length;

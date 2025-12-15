@@ -13,7 +13,7 @@ PROGRAMS := $(PROGRAM_NAMES:%=../../initrd/bin/%)
 
 default: ../../rootfs/initrd.tar
 
-all: $(PROGRAMS)
+all: ../../rootfs/initrd.tar $(PROGRAMS)
 
 ../../rootfs/initrd.tar: $(PROGRAMS)
 	@echo "packing files into rootfs/initrd.tar"

@@ -69,6 +69,10 @@ typedef struct Process {
     ListElement *openFileHandles;
     ListElement *virtual_memory_entries;
     ProcessFile process_files[PROC_FILE_MAX];
+    struct {
+        bool exited, reaped;
+        int32_t exit_code;
+    } reap_info;
 } Process;
 
 typedef struct ProcessThread {
@@ -112,6 +116,7 @@ extern void copy_between_processes(const Process *from_process, void *from,
                                    const uint32_t bytes_to_transfer);
 extern void memcpy_proc_to_kernel(const Process *process, void *threadRead,
                            uint8_t *write, const uint32_t bytes_to_transfer);
+extern void process_exit(Process *process, int32_t return_code);
 
 // memory operations
 extern VirtualMemoryEntry *

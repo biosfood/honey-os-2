@@ -50,6 +50,8 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
         *result = (void *)&process->process_files[PROC_FILE_EXECUTABLE];
     } else if (stringEquals(filename, "signal")) {
         *result = (void *)&process->process_files[PROC_FILE_SIGNAL];
+    } else if (stringEquals(filename, "status")) {
+        *result = (void *)&process->process_files[PROC_FILE_STATUS];
     } else {
         *result = NULL;
     }
@@ -91,8 +93,24 @@ void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
         listAdd(&threads_to_process, thread);
         return;
     }
+    if (file->file_type == PROC_FILE_STATUS) {
+        if (size < 4) {
+            *bytes_read = 0;
+            listAdd(&threads_to_process, thread);
+            return;
+        }
+        if (file->process->reap_info.exited) {
+            memcpy(&file->process->reap_info.exit_code, data, 4);
+            *bytes_read = 4;
+            file->process->reap_info.reaped = true;
+        } else {
+            fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
+        }
+        return;
+    }
     if (file->type == FILE_TYPE_FIFO) {
-        return fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
+        return fifo_read(data, size, &descriptor->fifo_data, thread,
+                         bytes_read);
     }
     switch (file->file_type) {
     case PROC_FILE_EXECUTABLE:
@@ -120,8 +138,12 @@ void procfs_getattr(ProcessFile *file, struct stat *stbuf, struct ProcessThread 
 }
 
 void procfs_write(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
-                 struct ProcessThread *thread,
-                 struct FileDescriptor *descriptor, uint32_t *bytes_written) {
+                  struct ProcessThread *thread,
+                  struct FileDescriptor *descriptor, uint32_t *bytes_written) {
+    if (file->file_type == PROC_FILE_STATUS && size == 4) {
+        process_exit(file->process, *(int32_t *)data);
+        return;
+    }
     if (file->type == FILE_TYPE_FIFO) {
         fifo_write((File *)file, data, size, bytes_written, thread);
         return;
@@ -133,7 +155,7 @@ FileSystemType procfs_type = {
     .create = NULL,
     .getattr = (void *)procfs_getattr,
     .read = (void *)procfs_read,
-    .write = (void*)procfs_write,
+    .write = (void *)procfs_write,
 };
 
 FileSystem *create_process_fs(struct Container *container) {
@@ -177,4 +199,11 @@ void initialize_proc_files(Process *process, char *exe) {
     process->process_files[PROC_FILE_SIGNAL].data = NULL;
     process->process_files[PROC_FILE_SIGNAL].file_descriptors = NULL;
     process->process_files[PROC_FILE_SIGNAL].file_type = PROC_FILE_SIGNAL;
+
+    process->process_files[PROC_FILE_STATUS].process = process;
+    process->process_files[PROC_FILE_STATUS].type = FILE_TYPE_FIFO;
+    process->process_files[PROC_FILE_STATUS].length = 0;
+    process->process_files[PROC_FILE_STATUS].data = NULL;
+    process->process_files[PROC_FILE_STATUS].file_descriptors = NULL;
+    process->process_files[PROC_FILE_STATUS].file_type = PROC_FILE_STATUS;
 }

@@ -118,6 +118,7 @@ enum ProcFiles {
     PROC_FILE_PIPEIN,
     PROC_FILE_EXECUTABLE,
     PROC_FILE_WORKDIR,
+    PROC_FILE_STATUS,
 
     // workaround to statically get the number of files
     PROC_FILE_MAX

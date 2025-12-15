@@ -21,25 +21,12 @@ void setupSyscalls() {
 
 ProcessThread *current_thread;
 
-void finalizeThread(ProcessThread *thread, uint32_t returnCode) {
-    // if a function has finished all of its work, free the stack and resume the
-    // super call (if it exists)
-    freePageFrom(&thread->process->memory_information, thread->esp);
-    freePage(thread->esp);
-    listRemoveValue(&thread->process->threads, thread);
-    if (listCount(thread->process->threads) == 0) {
-        // TODO: give up everything for the process
-        // free(thread->process);
-    }
-    free(thread);
-    // todo: handle join()
-}
-
 void handleSyscall(void *esp, const uint32_t function, const uint32_t parameter0,
                    const uint32_t parameter1, const uint32_t parameter2,
                    const uint32_t parameter3) {
     if (!function) {
-        finalizeThread(current_thread, parameter0);
+        // error condition, should not exist.
+        current_thread->run = false;
         current_thread = NULL;
         return;
     }
@@ -142,6 +129,9 @@ void set_thread_area_32(uint32_t tp) {
 }
 
 void processThread(ProcessThread *thread) {
+    if (thread->readyToBeJoined) {
+        return;
+    }
     if (thread->run) {
         set_thread_area_32(thread->thread_pointer_gs);
         thread_return_value = thread->returnValue;
@@ -150,7 +140,7 @@ void processThread(ProcessThread *thread) {
         current_thread = thread;
         runFunction();
         thread = current_thread;
-        if (!thread) {
+        if (!thread || thread->process->reap_info.exited) {
             return;
         }
         memset(thread->threadProcessingState, 0, 32);

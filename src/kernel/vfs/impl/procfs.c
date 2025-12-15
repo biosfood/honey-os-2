@@ -27,6 +27,10 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
     uint32_t id = 0;
     filename++;
     if (!read_integer_from_filename(&filename, &id)) {
+        if (filename[0] == 's' && filename[1] == 'e' && filename[2] == 'l' && filename[3] == 'f' && !filename[4]) {
+            *result = &fs->self_link;
+            return FILE_OPERATION_DONE;
+        }
         *result = NULL;
         return FILE_OPERATION_DONE;
     }
@@ -52,9 +56,41 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
     return FILE_OPERATION_DONE;
 }
 
+void int_to_string(uint32_t value, char* buffer) {
+    char temp[11];
+    char* p = temp;
+
+    // Edge case for 0
+    if (value == 0) {
+        *buffer++ = '0';
+        *buffer = '\0';
+        return;
+    }
+
+    // Fill temp buffer backwards
+    while (value > 0) {
+        *p++ = (value % 10) + '0';
+        value /= 10;
+    }
+
+    // Reverse into output buffer
+    while (p > temp) {
+        *buffer++ = *--p;
+    }
+    *buffer = '\0';
+}
+
 void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
                  struct ProcessThread *thread,
                  struct FileDescriptor *descriptor, uint32_t *bytes_read) {
+    if ((File*)file == &((ProcFileSystem*)file->file_system)->self_link) {
+        char buffer[11];
+        int_to_string(thread->process->id, buffer);
+        memcpy(buffer, data, strlen(buffer) + 1);
+        *bytes_read = strlen(buffer) + 1;
+        listAdd(&threads_to_process, thread);
+        return;
+    }
     if (file->type == FILE_TYPE_FIFO) {
         return fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
     }
@@ -73,8 +109,14 @@ void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
     listAdd(&threads_to_process, thread);
 }
 
-void procfs_getattr(ProcessFile *file, struct stat *stbuf) {
+void procfs_getattr(ProcessFile *file, struct stat *stbuf, struct ProcessThread *thread) {
     stbuf->st_size = file->length;
+    if ((File*)file == &((ProcFileSystem*)file->file_system)->self_link) {
+        char buffer[11];
+        int_to_string(thread->process->id, buffer);
+        stbuf->st_size = strlen(buffer) + 1;
+        return;
+    }
 }
 
 void procfs_write(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
@@ -85,7 +127,6 @@ void procfs_write(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
         return;
     }
 }
-
 
 FileSystemType procfs_type = {
     .getFile = (void *)procfs_get,
@@ -101,10 +142,17 @@ FileSystem *create_process_fs(struct Container *container) {
     result->name = "PROCFS";
     result->container = container;
     result->data = NULL;
+
     result->rootdir.data = NULL;
     result->rootdir.file_descriptors = NULL;
     result->rootdir.file_system = (void *)result;
     result->rootdir.type = FILE_TYPE_DIRECTORY;
+
+    result->self_link.type = FILE_TYPE_SYMLINK;
+    result->self_link.file_descriptors = NULL;
+    result->self_link.file_system = (void*)result;
+    result->self_link.data = NULL;
+
     result->type = &procfs_type;
     return (void *)result;
 }

@@ -152,7 +152,7 @@ void handleExecSyscall(ProcessThread *thread) {
     process->virtual_memory_entries = NULL;
     struct stat s;
     file_descriptor->file->file_system->type->getattr(file_descriptor->file,
-                                                      &s);
+                                                      &s, thread);
     void *file_data = malloc(s.st_size);
     // for now, just assume the file system is RAMfs
     uint32_t bytes_read;

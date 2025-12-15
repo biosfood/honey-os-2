@@ -113,7 +113,7 @@ void handleStatSyscall(ProcessThread *thread) {
     }
     struct stat buf;
     file_descriptor->file->file_system->type->getattr(file_descriptor->file,
-                                                      &buf);
+                                                      &buf, thread);
     copy_from_kernel_to_process(
         &buf, thread->process, PTR(thread->parameters[1]), sizeof(struct stat));
     listAdd(&threads_to_process, thread);

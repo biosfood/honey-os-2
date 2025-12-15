@@ -71,7 +71,7 @@ typedef struct {
     void (*read)(File *file, void *data, uint32_t size, uint32_t offset,
                  struct ProcessThread *thread,
                  struct FileDescriptor *descriptor, uint32_t *bytes_read);
-    uint32_t (*getattr)(File *file, struct stat *stbuf);
+    uint32_t (*getattr)(File *file, struct stat *stbuf, struct ProcessThread *thread);
 } FileSystemType;
 
 typedef struct FileSystem {

@@ -36,7 +36,7 @@ Container *newContainer(FileSystem *fs) {
     fs->type->getFile((void *)fs, "/bin/init", NULL, &init_file, &scratchpad, 0);
 
     struct stat s;
-    init_file->file_system->type->getattr(init_file, &s);
+    init_file->file_system->type->getattr(init_file, &s,NULL);
     void *file_data = malloc(s.st_size);
     // for now, just assume the file system is RAMfs
     uint32_t bytes_read;

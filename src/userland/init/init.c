@@ -29,8 +29,13 @@ int main() {
     if (!fork()) {
         execv("/bin/pic", args);
     }
-    if (!fork()) {
+    int status;
+    pid_t pid = fork();
+    if (!pid) {
         execv("/bin/index-pci", NULL);
+    } else {
+        waitpid(pid, &status, WUNTRACED);
+        printf("index pci finished: %i\n", status);
     }
 
     printf("Hello World!\n");
@@ -50,16 +55,6 @@ int main() {
     read(messageFile, cpuidMessage, 16);
     close(messageFile);
     printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
-
-    int status;
-    pid_t pid = fork();
-    if (!pid) {
-        exit(-5);
-    } else {
-        waitpid(pid, &status, WUNTRACED);
-        printf("finished waiting: %i, %i\n", pid, status);
-    }
-
 
     char buf;
     while (1) {

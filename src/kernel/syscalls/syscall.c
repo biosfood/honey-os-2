@@ -1,6 +1,4 @@
-#include <memory.h>
 #include <process.h>
-#include <service.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <syscall.h>

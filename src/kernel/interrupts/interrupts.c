@@ -4,7 +4,6 @@
 
 #include <interrupts.h>
 #include <memory.h>
-#include <service.h>
 #include <stddef.h>
 #include <syscall.h>
 #include <util.h>
@@ -16,8 +15,6 @@
 extern void *idt;
 extern GDTEntry newGDT;
 extern TSS tss;
-extern ListElement *threads_to_process;
-extern uint32_t getServiceId(Service *service);
 
 ListElement *interruptSubscriptions[255];
 
@@ -187,14 +184,4 @@ void setupPic() {
     outb(0xA1, 0x1);
     outb(0x21, 0xFF);
     outb(0xA1, 0xFF);
-}
-
-void handleSubscribeInterruptSyscall(Thread *call) {
-    ServiceFunction *provider = malloc(sizeof(ServiceFunction));
-    Service *service = call->service;
-    char *providerName = "INTERRUPT";
-    provider->name = providerName;
-    provider->address = PTR(call->parameters[1]);
-    provider->service = call->service;
-    listAdd(&interruptSubscriptions[call->parameters[0]], provider);
 }

@@ -1,9 +1,7 @@
-#include <fcntl.h>
 #include "process.h"
+#include <fcntl.h>
 
 #include <stddef.h>
-#include <stddef.h>
-#include <fcntl.h>
 
 #include <mountlistfs.h>
 #include <vfs.h>
@@ -22,12 +20,58 @@ void mount(FileSystem *mount_list_file_system, FileSystem *file_system,
     mount->mountPoint = mountPoint;
     mount->pathOffset = pathOffset;
     listAdd(&file_system->mountedInstances, mount);
-    listAdd((void*)&mount_list_file_system->data, mount);
+    listAdd((void *)&mount_list_file_system->data, mount);
 }
 
 void clean_path(char *path) {
     // cleans the path in place by shortening it as much as possible
-    // TODO
+    if (!path || !*path) {
+        return;
+    }
+
+    char *src = path;
+    char *dst = path;
+
+    while (*src) {
+        // Skip multiple slashes
+        while (*src == '/') {
+            src++;
+        }
+        *dst++ = '/';
+        if (!*src) {
+            break;
+        }
+
+        // Check for current directory
+        if (*src == '.' && (src[1] == '/' || !src[1])) {
+            src++;
+            continue;
+        }
+
+        // Check for parent directory
+        if (*src == '.' && src[1] == '.' && (src[2] == '/' || !src[2])) {
+            src += 2;
+            // Go back one directory if possible
+            if (dst > path + 1) {
+                dst--;
+                while (dst > path + 1 && *(dst - 1) != '/') {
+                    dst--;
+                }
+            }
+            continue;
+        }
+
+        // Copy path component
+        while (*src && *src != '/') {
+            *dst++ = *src++;
+        }
+    }
+
+    // Remove trailing slash (except for root)
+    if (dst > path + 1 && *(dst - 1) == '/') {
+        dst--;
+    }
+    *dst = '\0';
 }
 
 enum MountlistGetStage {
@@ -87,7 +131,8 @@ uint32_t get_last_slash_position(char *string) {
 
 FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
                                        struct ProcessThread *thread,
-                                       File **result, void **scratchpad, uint32_t options) {
+                                       File **result, void **scratchpad,
+                                       uint32_t options) {
     if (!*scratchpad) {
         *scratchpad = malloc(sizeof(struct MountlistGetState));
         ((struct MountlistGetState *)*scratchpad)->stage = MOUNTLIST_GET_PRE;
@@ -129,7 +174,8 @@ FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
                 state->stage = MOUNTLIST_GET_POST;
                 goto end;
             }
-            if ((options & O_SYMLINK) && !state->current_path[strlen(state->current_path) + 1]) {
+            if ((options & O_SYMLINK) &&
+                !state->current_path[strlen(state->current_path) + 1]) {
                 state->stage = MOUNTLIST_GET_POST;
                 goto end;
             }
@@ -165,8 +211,7 @@ FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
         if (state->symlink_read[0] == '/') {
             new = combineStrings(state->symlink_read, remainder);
         } else {
-            last_slash_position =
-                get_last_slash_position(state->current_path);
+            last_slash_position = get_last_slash_position(state->current_path);
             if (last_slash_position == 0) {
                 new = combineStrings("/", state->symlink_read);
             } else {
@@ -176,14 +221,16 @@ FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
                 uint32_t current_path_length = strlen(state->current_path);
                 uint32_t symlink_length = strlen(state->symlink_read);
                 uint32_t remainder_length = strlen(remainder);
-                new =
-                    malloc(current_path_length + 1 +
-                           symlink_length + 1 + remainder_length);
+                new = malloc(current_path_length + 1 + symlink_length + 1 +
+                             remainder_length);
                 memcpy(state->current_path, new, current_path_length);
                 new[current_path_length] = '/';
-                memcpy(state->symlink_read, new + current_path_length + 1, symlink_length);
+                memcpy(state->symlink_read, new + current_path_length + 1,
+                       symlink_length);
                 new[current_path_length + symlink_length + 1] = '/';
-                memcpy(remainder, new + current_path_length + 1 + symlink_length + 1, remainder_length);
+                memcpy(remainder,
+                       new + current_path_length + 1 + symlink_length + 1,
+                       remainder_length);
             }
         }
         free(state->current_path);

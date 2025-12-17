@@ -44,29 +44,30 @@ void handleForkSyscall(ProcessThread *thread) {
     new_thread->run = true;
     new_thread->thread_pointer_gs = thread->thread_pointer_gs;
 
-    foreach (
-        thread->process->virtual_memory_entries, VirtualMemoryEntry *,
-        original_virtual, {
-            VirtualMemoryEntry *virtual = malloc(sizeof(VirtualMemoryEntry));
-            virtual->virtual = original_virtual->virtual;
-            virtual->process = process;
-            virtual->type = original_virtual->type;
-            virtual->mappings = NULL;
-            virtual->size = original_virtual->size;
-            listAdd(&process->virtual_memory_entries, virtual);
+    foreach (thread->process->virtual_memory_entries, VirtualMemoryEntry *,
+             original_virtual, {
+                 VirtualMemoryEntry *virtual =
+                     malloc(sizeof(VirtualMemoryEntry));
+                 virtual->virtual = original_virtual->virtual;
+                 virtual->process = process;
+                 virtual->type = original_virtual->type;
+                 virtual->mappings = NULL;
+                 virtual->size = original_virtual->size;
+                 listAdd(&process->virtual_memory_entries, virtual);
 
-            foreach (original_virtual->mappings, MemoryMapping *,
-                     original_mapping, {
-                         MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
-                         mapping->virtual = original_mapping->virtual;
-                         mapping->physical = original_mapping->physical;
-                         original_mapping->physical->refcount++;
-                         mapping->copy_on_write = true;
-                         original_mapping->copy_on_write = true;
-                         listAdd(&virtual->mappings, mapping);
-                     })
-                ;
-        })
+                 foreach (original_virtual->mappings, MemoryMapping *,
+                          original_mapping, {
+                              MemoryMapping *mapping =
+                                  malloc(sizeof(MemoryMapping));
+                              mapping->virtual = original_mapping->virtual;
+                              mapping->physical = original_mapping->physical;
+                              original_mapping->physical->refcount++;
+                              mapping->copy_on_write = true;
+                              original_mapping->copy_on_write = true;
+                              listAdd(&virtual->mappings, mapping);
+                          })
+                     ;
+             })
         ;
 
     foreach (
@@ -104,6 +105,7 @@ void handleForkSyscall(ProcessThread *thread) {
                  FileDescriptor *new = malloc(sizeof(FileDescriptor));
                  memcpy(file_descriptor, new, sizeof(FileDescriptor));
                  listAdd(&process->openFileHandles, new);
+                 listAdd(&new->file->file_descriptors, new);
              })
         ;
 
@@ -134,7 +136,8 @@ void handleExecSyscall(ProcessThread *thread) {
 
     process->process_files[PROC_FILE_EXECUTABLE].data =
         combineStrings("", file_descriptor->path);
-    process->process_files[PROC_FILE_EXECUTABLE].length = strlen(file_descriptor->path) + 1;
+    process->process_files[PROC_FILE_EXECUTABLE].length =
+        strlen(file_descriptor->path) + 1;
 
     foreach (process->virtual_memory_entries, VirtualMemoryEntry *, virtual, {
         foreach (virtual->mappings, MemoryMapping *, mapping, {
@@ -155,8 +158,8 @@ void handleExecSyscall(ProcessThread *thread) {
     listClear(process->virtual_memory_entries);
     process->virtual_memory_entries = NULL;
     struct stat s;
-    file_descriptor->file->file_system->type->getattr(file_descriptor->file,
-                                                      &s, thread);
+    file_descriptor->file->file_system->type->getattr(file_descriptor->file, &s,
+                                                      thread);
     void *file_data = malloc(s.st_size);
     // for now, just assume the file system is RAMfs
     uint32_t bytes_read;
@@ -173,9 +176,11 @@ void reap_process(Process *process) {
         return;
     }
     uint32_t bytes_written;
-    fifo_write((File*)&process->process_files[PROC_FILE_STATUS], &process->reap_info.exit_code,  1, &bytes_written, NULL);
+    fifo_write((File *)&process->process_files[PROC_FILE_STATUS],
+               &process->reap_info.exit_code, 1, &bytes_written, NULL);
     for (uint32_t i = 0; i < PROC_FILE_MAX; i++) {
-        // set the file of all process file descriptors to NULL, you can no longer read or write to them.
+        // set the file of all process file descriptors to NULL, you can no
+        // longer read or write to them.
     }
 }
 
@@ -200,24 +205,25 @@ void process_destroy(Process *process) {
     // TODO: make sure everything gets cleared here
     listClear(process->threads);
     // finally, we can give up the process's memory
-    // we can safely do this because the process itself cannot initiate this function
-    // it is called after a close()
+    // we can safely do this because the process itself cannot initiate this
+    // function it is called after a close()
     free(process);
 }
 
 void process_exit(Process *process, int32_t return_code) {
-    foreach(process->threads, ProcessThread *, thread, {
-        terminate_thread(thread);
-    });
-    foreach(process->openFileHandles, FileDescriptor *, descriptor, {
-        close_file_descriptor(descriptor);
-    });
+    foreach (process->threads, ProcessThread *, thread,
+             { terminate_thread(thread); })
+        ;
+    foreach (process->openFileHandles, FileDescriptor *, descriptor,
+             { close_file_descriptor(descriptor); })
+        ;
     listClear(process->openFileHandles);
 
     process->reap_info.exit_code = return_code;
     process->reap_info.exited = true;
     uint32_t bytes_written = 0;
-    fifo_write((File*)&process->process_files[PROC_FILE_STATUS], &process->reap_info.exit_code, 4, &bytes_written, NULL);
+    fifo_write((File *)&process->process_files[PROC_FILE_STATUS],
+               &process->reap_info.exit_code, 4, &bytes_written, NULL);
     if (bytes_written) {
         process->reap_info.reaped = true;
     }

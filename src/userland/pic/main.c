@@ -1,11 +1,13 @@
 #include <fcntl.h>
+
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <sys/stat.h>
 #include <stdint.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define OFFSET 0x20
 
@@ -14,8 +16,6 @@ int data_master_fd, data_slave_fd;
 
 int irq_fd_dec[16];
 int irq_fd_hex[16];
-
-int a;
 
 #define PIC_READ_ISR 0x0B
 uint16_t getISR() {
@@ -33,20 +33,17 @@ uint16_t getISR() {
 
 void *handler(void *param) {
     int i = (intptr_t)param;
-    char *filename;
-    asprintf(&filename, "/dev/interrupt/%i", OFFSET + i);
-    int interrupt_fd = open(filename, 0);
-    free(filename);
+    char filename[100];
+    sprintf(filename, "/dev/interrupt/%i", OFFSET + i);
+    int interrupt_fd = open(filename, O_RDONLY);
 
-    asprintf(&filename, "/dec/pic/%i", i);
+    sprintf(filename, "/dev/pic/%i", i);
     mkfifo(filename, 0);
-    irq_fd_dec[i] = open(filename, 0);
-    free(filename);
+    irq_fd_dec[i] = open(filename, O_WRONLY);
 
-    asprintf(&filename, "/dev/pic/%i", i);
+    sprintf(&filename, "/dev/pic/0x%x", i);
     mkfifo(filename, 0);
-    irq_fd_hex[i] = open(filename, 0);
-    free(filename);
+    irq_fd_hex[i] = open(filename, O_WRONLY);
 
     uint32_t buf;
     while (1) {
@@ -80,10 +77,10 @@ int main(char **argv, int argc) {
     malloc(1);
     mkdir("/dev/pic", 0);
 
-    control_master_fd = open("/dev/port/0x20", 0);
-    data_master_fd = open("/dev/port/0x21", 0);
-    control_slave_fd = open("/dev/port/0xA0", 0);
-    data_slave_fd = open("/dev/port/0xA1", 0);
+    control_master_fd = open("/dev/port/0x20", O_RDWR);
+    data_master_fd = open("/dev/port/0x21", O_RDWR);
+    control_slave_fd = open("/dev/port/0xA0", O_RDWR);
+    data_slave_fd = open("/dev/port/0xA1", O_RDWR);
 
     // only unmasking one for now...
     uint32_t d = ~(1 << 4);

@@ -1,21 +1,26 @@
+#include "../../../build/musl/include/fcntl.h"
+
 #include <dirent.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <stdint.h>
 #include <unistd.h>
 
 void *readLoop(void *) {
     int irq_fd;
-    while ((irq_fd = open("/dev/pic/4", 0)) == -1);
-    int write_fd = open("/dev/serin", 0);
+    int write_fd = open("/dev/serin", O_RDWR);
 
-    int data = open("/dev/port/0x3F8", 0);
+    int data = open("/dev/port/0x3F8", O_RDWR);
+    // everything is set up, notify everyone (the init system) by sending a byte
+    uint32_t buf = 0;
+    write(write_fd, &buf, 1);
+    while ((irq_fd = open("/dev/pic/4", O_RDONLY)) < 0);
     while (1) {
-        uint32_t buf = 0;
+        buf = 0;
         read(data, &buf, 1);
         while (buf) {
             write(write_fd, &buf, 1);
@@ -29,13 +34,13 @@ void *readLoop(void *) {
 char buffer[1024];
 
 void main() {
-    int fd = open("/dev/serout", 0);
+    int fd = open("/dev/serout", O_RDONLY);
 
-    int rbr = open("/dev/port/1016", 0);
-    int ier = open("/dev/port/1017", 0);
-    int irr = open("/dev/port/1018", 0);
-    int lcr = open("/dev/port/1019", 0);
-    int mcr = open("/dev/port/1020", 0);
+    int rbr = open("/dev/port/1016", O_WRONLY);
+    int ier = open("/dev/port/1017", O_WRONLY);
+    int irr = open("/dev/port/1018", O_WRONLY);
+    int lcr = open("/dev/port/1019", O_WRONLY);
+    int mcr = open("/dev/port/1020", O_WRONLY);
     // int lsr = open("/dev/port/1021", 0);
     // int msr = open("/dev/port/1022", 0);
     // int scr = open("/dev/port/1023", 0);

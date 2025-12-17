@@ -4,11 +4,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "../../../build/musl/include/fcntl.h"
+#include "../list.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../list.h"
+
 #include <dirent.h>
 #include <fcntl.h>
 
@@ -87,9 +89,9 @@ void checkBus(uint8_t);
 #define CREATE_FILE(filename, ...)                                             \
     {                                                                          \
         char *path;                                                            \
-        asprintf(&path, "/dev/pci/%i:%i.%i/" filename, bus, device,           \
+        asprintf(&path, "/dev/pci/%i:%i.%i/" filename, bus, device,            \
                  function);                                                    \
-        int fd = open(path, O_CREAT);                                          \
+        int fd = open(path, O_CREAT|O_RDWR);                                   \
         dprintf(fd, __VA_ARGS__);                                              \
         close(fd);                                                             \
         free(path);                                                            \
@@ -180,12 +182,12 @@ void initializePci() {
 
 void main() {
     malloc(1);
-    config_address_fd = open("/dev/port/3320", 0);
-    config_data_fd = open("/dev/port/3324", 0);
+    config_address_fd = open("/dev/port/3320", O_RDWR);
+    config_data_fd = open("/dev/port/3324", O_RDWR);
     mkdir("/dev/pci", 0);
     initializePci();
 
-    int pcidevs = open("/dev/pci", 0);
+    int pcidevs = open("/dev/pci", O_SEARCH | O_RDONLY);
     struct stat stat;
     fstat(pcidevs, &stat);
     struct posix_dent *data = malloc(stat.st_size);
@@ -197,7 +199,7 @@ void main() {
             break;
         }
         asprintf(&filename, "/dev/pci/%s/class_name", current->d_name);
-        int fd = open(filename, 0);
+        int fd = open(filename, O_RDONLY);
         free(filename);
         fstat(fd, &stat);
         char *classname = malloc(stat.st_size);
@@ -205,7 +207,7 @@ void main() {
         close(fd);
 
         asprintf(&filename, "/dev/pci/%s/class", current->d_name);
-        fd = open(filename, 0);
+        fd = open(filename, O_RDONLY);
         free(filename);
         fstat(fd, &stat);
         char *class = malloc(stat.st_size);

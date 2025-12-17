@@ -1,11 +1,13 @@
-#include <hlib.h>
+#include <stdio.h>
 
-void testFunction() { printf("0/0 = %i\n", 0 / 0); }
+void testFunction() {
+    int i = 0;
+    i /= i;
+    printf("0/0 = %i\n", i);
+}
 
 int32_t main() {
-    printf("trying to divide by zero whenever you press a key...\n");
-    uint32_t ioManager = getService("ioManager");
-    await(ioManager, getEvent(ioManager, "keyPress"));
+    printf("trying to divide by zero now...\n");
     testFunction();
     return 0;
 }

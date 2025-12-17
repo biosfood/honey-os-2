@@ -4,6 +4,7 @@
 #include <process.h>
 #include <stddef.h>
 #include <vfs.h>
+#include <fcntl.h>
 
 enum OpenStage {
     OPEN_PRE = 0,
@@ -40,7 +41,8 @@ void handleOpenSyscall(ProcessThread *thread) {
         state->stage = OPEN_POST;
         // fallthrough
     case OPEN_POST:
-        if (state->file == NULL) {
+        if (state->file == NULL ||
+            (state->file->type == FILE_TYPE_DIRECTORY && !(thread->parameters[1] & O_SEARCH))) {
             thread->returnValue = -1;
         } else {
             FileDescriptor *file_descriptor =
@@ -51,6 +53,10 @@ void handleOpenSyscall(ProcessThread *thread) {
             thread->returnValue = file_descriptor->id;
             listAdd(&state->file->file_descriptors, file_descriptor);
             file_descriptor->path = state->filename; // taken from copy_string_from_process
+
+            uint8_t mode = thread->parameters[1] & 0x03;
+            file_descriptor->read = mode == O_RDWR || mode == O_RDONLY;
+            file_descriptor->write = mode == O_RDWR || mode == O_WRONLY;
         }
         thread->run = true;
         listAdd(&threads_to_process, thread);

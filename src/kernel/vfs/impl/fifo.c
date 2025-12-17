@@ -36,8 +36,10 @@ void fifo_write_descriptor(FiFoData *fifo_data, void *write_data,
 void fifo_write(File *file, void *write_data, uint32_t len,
                 uint32_t *bytes_written, ProcessThread *thread) {
     foreach (file->file_descriptors, FileDescriptor *, file_descriptor, {
-        fifo_write_descriptor(&file_descriptor->fifo_data, write_data, len);
-        *bytes_written = len;
+        if (file_descriptor->read) {
+            fifo_write_descriptor(&file_descriptor->fifo_data, write_data, len);
+            *bytes_written = len;
+        }
     })
         ;
     if (thread) {

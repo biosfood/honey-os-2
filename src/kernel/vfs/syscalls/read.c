@@ -4,6 +4,7 @@
 #include <process.h>
 #include <stddef.h>
 #include <vfs.h>
+#include <errno.h>
 
 enum ReadStage {
     READ_SETUP = 0,
@@ -30,8 +31,8 @@ void handleReadSyscall(ProcessThread *thread) {
                      }
                  })
             ;
-        if (state->file_descriptor == NULL) {
-            thread->returnValue = -1;
+        if (state->file_descriptor == NULL || !state->file_descriptor->read) {
+            thread->returnValue = -EBADF;
             listAdd(&threads_to_process, thread);
             return;
         }

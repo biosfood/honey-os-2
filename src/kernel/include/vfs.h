@@ -31,6 +31,7 @@ typedef struct FileDescriptor {
     uint32_t offset;
     FiFoData fifo_data;
     char *path;
+    bool read, write, execute;
 } FileDescriptor;
 
 enum FileType {

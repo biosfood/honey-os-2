@@ -1,7 +1,3 @@
-#include "../../../build/musl/include/fcntl.h"
-#include "../../../build/musl/include/unistd.h"
-
-#include <dirent.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdint.h>

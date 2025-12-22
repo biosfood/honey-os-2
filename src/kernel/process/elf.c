@@ -148,6 +148,7 @@ ProcessThread *processLoadELF(Process *process, void *file_data) {
     thread->process = process;
     listAdd(&process->threads, thread);
     thread->function = 0;
+    initialize_thread_files(thread);
 
     build_starting_stack(thread, PTR(header->entryPosition), phdr_virtual, header->programHeaderEntryCount, header->programHeaderEntrySize);
 

@@ -127,7 +127,7 @@ void set_thread_area_32(uint32_t tp) {
 }
 
 void processThread(ProcessThread *thread) {
-    if (thread->readyToBeJoined) {
+    if (thread->join_info.exited) {
         return;
     }
     if (thread->run) {

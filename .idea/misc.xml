@@ -4,10 +4,10 @@
   <component name="MakefileSettings">
     <option name="linkedExternalProjectsSettings">
       <MakefileProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$/src/userland" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/src/userland" />
           </set>
         </option>
         <option name="switches" value="CFLAGS=&quot;-std=gnu11&quot;" />
@@ -15,6 +15,8 @@
       </MakefileProjectSettings>
     </option>
   </component>
-  <component name="MakefileWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
-  <component name="WestSettings"><![CDATA[{}]]></component>
+  <component name="MakefileWorkspace" PROJECT_DIR="$PROJECT_DIR$/src/userland">
+    <contentRoot DIR="$PROJECT_DIR$" />
+  </component>
+  <component name="WestSettings">{}</component>
 </project>

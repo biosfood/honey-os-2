@@ -78,8 +78,6 @@ typedef struct Process {
 typedef struct ProcessThread {
     uint32_t id;
     Process *process;
-    bool hasBeenJoined;
-    bool readyToBeJoined;
     // system call information
     // the gist is that in the kernel, a process is always in the 'paused' state
     // - because it did a system call.
@@ -89,10 +87,17 @@ typedef struct ProcessThread {
     void *esp;
     bool run;
     // to be used as the thread pointer.
-    // Since this register is not writable from ring 3, this needs to be set from the kernel, so it is stored here.
-    // Normally, user programs should assume all registers to be clobbered by a syscall but this one cannot be restored otherwise.
+    // Since this register is not writable from ring 3, this needs to be set
+    // from the kernel, so it is stored here. Normally, user programs should
+    // assume all registers to be clobbered by a syscall but this one cannot be
+    // restored otherwise.
     uint32_t thread_pointer_gs;
     uint32_t threadProcessingState[8];
+    ThreadFile thread_files[THREAD_FILE_MAX];
+    struct {
+        bool exited, joined;
+        void *result;
+    } join_info;
 } ProcessThread;
 
 extern ListElement *threads_to_process;
@@ -115,8 +120,11 @@ extern void copy_between_processes(const Process *from_process, void *from,
                                    const Process *to_process, void *to,
                                    const uint32_t bytes_to_transfer);
 extern void memcpy_proc_to_kernel(const Process *process, void *threadRead,
-                           uint8_t *write, const uint32_t bytes_to_transfer);
+                                  uint8_t *write,
+                                  const uint32_t bytes_to_transfer);
 extern void process_exit(Process *process, int32_t return_code);
+extern void thread_exit(ProcessThread *thread, void *result);
+extern void terminate_thread(ProcessThread *thread);
 
 // memory operations
 extern VirtualMemoryEntry *

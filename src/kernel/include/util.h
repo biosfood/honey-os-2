@@ -38,5 +38,6 @@ extern uint32_t listCount(ListElement *list);
 extern void *listGet(ListElement *list, uint32_t position);
 extern bool listRemoveValue(ListElement **list, void *value);
 extern void listClear(ListElement *list);
+extern bool stringStartsWith(char *string1, char *string2);
 
 #endif

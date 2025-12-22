@@ -100,6 +100,7 @@ extern FileSystem *createKernelFs();
 extern FileSystem *create_process_fs(struct Container *container);
 
 extern void initialize_proc_files(struct Process *process, char *exe);
+extern void initialize_thread_files(struct ProcessThread *thread);
 
 void processInitrd(void *fileData, uint32_t tarFileSize,
                    FileSystem *file_system);
@@ -120,9 +121,18 @@ enum ProcFiles {
     PROC_FILE_EXECUTABLE,
     PROC_FILE_WORKDIR,
     PROC_FILE_STATUS,
+    PROC_FILE_TASKS,
 
     // workaround to statically get the number of files
-    PROC_FILE_MAX
+    PROC_FILE_MAX,
+};
+
+enum ThreadFiles {
+    THREAD_FILE_ROOT = 1,
+    THREAD_FILE_STATUS,
+
+    // workaround to statically get the number of files
+    THREAD_FILE_MAX
 };
 
 typedef struct {
@@ -131,5 +141,12 @@ typedef struct {
     enum ProcFiles file_type;
     uint32_t length;
 } ProcessFile;
+
+typedef struct {
+    struct File;
+    struct ProcessThread *thread;
+    enum ThreadFiles file_type;
+    uint32_t length;
+} ThreadFile;
 
 #endif // VFS_H

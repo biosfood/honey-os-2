@@ -15,6 +15,20 @@ bool stringEquals(char *string1, char *string2) {
     return *string2 == 0;
 }
 
+bool stringStartsWith(char *string1, char *string2) {
+    if (string1 == string2) {
+        return true;
+    }
+    while (*string2) {
+        if (*string1 != *string2) {
+            return false;
+        }
+        string1++;
+        string2++;
+    }
+    return true;
+}
+
 uint32_t strlen(char *string) {
     if (!string) {
         return 0;

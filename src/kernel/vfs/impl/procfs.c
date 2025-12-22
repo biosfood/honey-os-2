@@ -11,6 +11,7 @@ typedef struct {
     Container *container;
     File rootdir;
     File self_link;
+    File self_thread_link;
 } ProcFileSystem;
 
 FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
@@ -27,7 +28,8 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
     uint32_t id = 0;
     filename++;
     if (!read_integer_from_filename(&filename, &id)) {
-        if (filename[0] == 's' && filename[1] == 'e' && filename[2] == 'l' && filename[3] == 'f' && !filename[4]) {
+        if (filename[0] == 's' && filename[1] == 'e' && filename[2] == 'l' &&
+            filename[3] == 'f' && !filename[4]) {
             *result = &fs->self_link;
             return FILE_OPERATION_DONE;
         }
@@ -46,21 +48,55 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
         *result = NULL;
         return FILE_OPERATION_DONE;
     }
+    if (stringStartsWith(filename, "threads/")) {
+        filename += 8;
+        uint32_t thread_id = 0;
+        if (!read_integer_from_filename(&filename, &thread_id)) {
+            if (filename[0] == 's' && filename[1] == 'e' &&
+                filename[2] == 'l' && filename[3] == 'f' && !filename[4]) {
+                *result = &fs->self_thread_link;
+                return FILE_OPERATION_DONE;
+            }
+            *result = NULL;
+            return FILE_OPERATION_DONE;
+        }
+        ProcessThread *thread = NULL;
+        foreach (process->threads, ProcessThread *, current_thread, {
+            if (current_thread->id == thread_id) {
+                thread = current_thread;
+                break;
+            }
+        })
+            ;
+        if (!thread) {
+            *result = NULL;
+            return FILE_OPERATION_DONE;
+        }
+        if (stringEquals(filename, "status")) {
+            *result = (void *)&thread
+                          ->thread_files[THREAD_FILE_STATUS];
+        } else {
+            *result = NULL;
+        }
+        return FILE_OPERATION_DONE;
+    }
     if (stringEquals(filename, "exe")) {
         *result = (void *)&process->process_files[PROC_FILE_EXECUTABLE];
     } else if (stringEquals(filename, "signal")) {
         *result = (void *)&process->process_files[PROC_FILE_SIGNAL];
     } else if (stringEquals(filename, "status")) {
         *result = (void *)&process->process_files[PROC_FILE_STATUS];
+    } else if (stringEquals(filename, "threads")) {
+        *result = (void *)&process->process_files[PROC_FILE_TASKS];
     } else {
         *result = NULL;
     }
     return FILE_OPERATION_DONE;
 }
 
-void int_to_string(uint32_t value, char* buffer) {
+void int_to_string(uint32_t value, char *buffer) {
     char temp[11];
-    char* p = temp;
+    char *p = temp;
 
     // Edge case for 0
     if (value == 0) {
@@ -85,9 +121,17 @@ void int_to_string(uint32_t value, char* buffer) {
 void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
                  struct ProcessThread *thread,
                  struct FileDescriptor *descriptor, uint32_t *bytes_read) {
-    if ((File*)file == &((ProcFileSystem*)file->file_system)->self_link) {
+    if ((File *)file == &((ProcFileSystem *)file->file_system)->self_link) {
         char buffer[11];
         int_to_string(thread->process->id, buffer);
+        memcpy(buffer, data, strlen(buffer) + 1);
+        *bytes_read = strlen(buffer) + 1;
+        listAdd(&threads_to_process, thread);
+        return;
+    }
+    if ((File *)file == &((ProcFileSystem *)file->file_system)->self_thread_link) {
+        char buffer[11];
+        int_to_string(thread->id, buffer);
         memcpy(buffer, data, strlen(buffer) + 1);
         *bytes_read = strlen(buffer) + 1;
         listAdd(&threads_to_process, thread);
@@ -103,6 +147,22 @@ void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
             memcpy(&file->process->reap_info.exit_code, data, 4);
             *bytes_read = 4;
             file->process->reap_info.reaped = true;
+        } else {
+            fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
+        }
+        return;
+    }
+    if (file->file_type == -THREAD_FILE_STATUS) {
+        ThreadFile *thread_file = (void*)file;
+        if (size < 4) {
+            *bytes_read = 0;
+            listAdd(&threads_to_process, thread);
+            return;
+        }
+        if (thread_file->thread->join_info.exited) {
+            memcpy(&thread_file->thread->join_info.result, data, 4);
+            *bytes_read = 4;
+            thread_file->thread->join_info.joined = true;
         } else {
             fifo_read(data, size, &descriptor->fifo_data, thread, bytes_read);
         }
@@ -127,9 +187,10 @@ void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
     listAdd(&threads_to_process, thread);
 }
 
-void procfs_getattr(ProcessFile *file, struct stat *stbuf, struct ProcessThread *thread) {
+void procfs_getattr(ProcessFile *file, struct stat *stbuf,
+                    struct ProcessThread *thread) {
     stbuf->st_size = file->length;
-    if ((File*)file == &((ProcFileSystem*)file->file_system)->self_link) {
+    if ((File *)file == &((ProcFileSystem *)file->file_system)->self_link) {
         char buffer[11];
         int_to_string(thread->process->id, buffer);
         stbuf->st_size = strlen(buffer) + 1;
@@ -142,6 +203,11 @@ void procfs_write(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
                   struct FileDescriptor *descriptor, uint32_t *bytes_written) {
     if (file->file_type == PROC_FILE_STATUS && size == 4) {
         process_exit(file->process, *(int32_t *)data);
+        return;
+    }
+    if (file->file_type == -THREAD_FILE_STATUS && size == 4) {
+        ThreadFile *thread_file = (void *)file;
+        thread_exit(thread_file->thread, *(void **)data);
         return;
     }
     if (file->type == FILE_TYPE_FIFO) {
@@ -172,8 +238,13 @@ FileSystem *create_process_fs(struct Container *container) {
 
     result->self_link.type = FILE_TYPE_SYMLINK;
     result->self_link.file_descriptors = NULL;
-    result->self_link.file_system = (void*)result;
+    result->self_link.file_system = (void *)result;
     result->self_link.data = NULL;
+
+    result->self_thread_link.type = FILE_TYPE_SYMLINK;
+    result->self_thread_link.file_descriptors = NULL;
+    result->self_thread_link.file_system = (void *)result;
+    result->self_thread_link.data = NULL;
 
     result->type = &procfs_type;
     return (void *)result;
@@ -206,4 +277,28 @@ void initialize_proc_files(Process *process, char *exe) {
     process->process_files[PROC_FILE_STATUS].data = NULL;
     process->process_files[PROC_FILE_STATUS].file_descriptors = NULL;
     process->process_files[PROC_FILE_STATUS].file_type = PROC_FILE_STATUS;
+
+    process->process_files[PROC_FILE_ROOT].process = process;
+    process->process_files[PROC_FILE_ROOT].type = FILE_TYPE_DIRECTORY;
+    process->process_files[PROC_FILE_ROOT].length = 0;
+    process->process_files[PROC_FILE_ROOT].data = NULL;
+    process->process_files[PROC_FILE_ROOT].file_descriptors = NULL;
+    process->process_files[PROC_FILE_ROOT].file_type = PROC_FILE_ROOT;
+
+    process->process_files[PROC_FILE_TASKS].process = process;
+    process->process_files[PROC_FILE_TASKS].type = FILE_TYPE_DIRECTORY;
+    process->process_files[PROC_FILE_TASKS].length = 0;
+    process->process_files[PROC_FILE_TASKS].data = NULL;
+    process->process_files[PROC_FILE_TASKS].file_descriptors = NULL;
+    process->process_files[PROC_FILE_TASKS].file_type = PROC_FILE_TASKS;
+}
+
+void initialize_thread_files(ProcessThread *thread) {
+    thread->thread_files[THREAD_FILE_STATUS].file_descriptors = NULL;
+    thread->thread_files[THREAD_FILE_STATUS].thread = thread;
+    thread->thread_files[THREAD_FILE_STATUS].type = FILE_TYPE_FIFO;
+    thread->thread_files[THREAD_FILE_STATUS].length = 0;
+    thread->thread_files[THREAD_FILE_STATUS].data = NULL;
+    thread->thread_files[THREAD_FILE_STATUS].file_type = -THREAD_FILE_STATUS;
+    thread->thread_files[THREAD_FILE_STATUS].file_system = thread->process->container->procfs;
 }

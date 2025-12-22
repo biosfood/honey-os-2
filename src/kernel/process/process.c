@@ -184,15 +184,6 @@ void reap_process(Process *process) {
     }
 }
 
-void terminate_thread(ProcessThread *thread) {
-    if (thread->readyToBeJoined) {
-        return;
-    }
-    thread->readyToBeJoined = true;
-    thread->hasBeenJoined = false;
-    thread->run = false;
-}
-
 void close_file_descriptor(FileDescriptor *descriptor) {
     // descriptor->file->file_system->type->close(descriptor->file);
     // TODO

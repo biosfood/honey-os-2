@@ -8,7 +8,13 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+void *thread_demo(void *arg) {
+    printf("hello from the thread: %p\n", arg);
+    return (void*)(uintptr_t)-5;
+}
+
 int main() {
+    malloc(1);
     mkdir("/dev", 0);
     mkfifo("/dev/serout", 0);
     mkfifo("/dev/serin", 0);
@@ -63,6 +69,16 @@ int main() {
     printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
 
     char buf;
+    read(STDIN_FILENO, &buf, 1);
+    pthread_t thread;
+    pthread_create(&thread, NULL, thread_demo, (void*)(uintptr_t)-3);
+
+    read(STDIN_FILENO, &buf, 1);
+    void *result;
+    printf("started thread\n");
+    pthread_join(thread, &result);
+    printf("thread result: %p\n", result);
+
     while (1) {
         read(STDIN_FILENO, &buf, 1);
         printf("in: %x\n", buf);

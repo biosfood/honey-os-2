@@ -65,7 +65,8 @@ void main() {
     close(lcr);
     close(mcr);
 
-    pthread_create(NULL, NULL, readLoop, NULL);
+    pthread_t pthread;
+    pthread_create(&pthread, NULL, readLoop, NULL);
     while (1) {
         const int32_t count = read(fd, buffer, 1024);
         for (int i = 0; i < count; i++) {

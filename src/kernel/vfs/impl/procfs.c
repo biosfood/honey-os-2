@@ -196,6 +196,12 @@ void procfs_getattr(ProcessFile *file, struct stat *stbuf,
         stbuf->st_size = strlen(buffer) + 1;
         return;
     }
+    if ((File *)file == &((ProcFileSystem *)file->file_system)->self_thread_link) {
+        char buffer[11];
+        int_to_string(thread->id, buffer);
+        stbuf->st_size = strlen(buffer) + 1;
+        return;
+    }
 }
 
 void procfs_write(ProcessFile *file, void *data, uint32_t size, uint32_t offset,

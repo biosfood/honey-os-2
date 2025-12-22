@@ -31,8 +31,11 @@ int main() {
     int status;
     pid_t pid;
 
-    if (!fork()) {
+    pid = fork();
+    if (!pid) {
         execv("/bin/pic", args);
+    } else {
+        read(STDIN_FILENO, &status, 1);
     }
 
     pid = fork();

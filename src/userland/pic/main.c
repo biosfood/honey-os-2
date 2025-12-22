@@ -94,10 +94,19 @@ int main(char **argv, int argc) {
     d = 0x20;
     write(control_master_fd, &d, 1);
     write(control_slave_fd, &d, 1);
-    for (uint8_t i = 0; i < 15; i++) {
-        pthread_t pthread;
-        pthread_create(&pthread, NULL, handler, (void*)(uintptr_t)i);
+    pthread_t threads[16];
+    for (uint8_t i = 0; i < 16; i++) {
+        pthread_create(&threads[i], NULL, handler, (void*)(uintptr_t)i);
     }
-    handler((void*)(uintptr_t)16);
-    // TODO: join all threads
+    // notify ready, send a byte
+    d = '\n';
+    int write_fd = open("/dev/serin", O_WRONLY);
+    write(write_fd, &d, 1);
+    close(write_fd);
+
+    // join all threads
+    for (uint8_t i = 0; i < 16; i++) {
+        void *result;
+        pthread_join(threads[i], &result);
+    }
 }

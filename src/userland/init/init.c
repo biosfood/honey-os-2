@@ -8,11 +8,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-void *thread_demo(void *arg) {
-    printf("hello from the thread: %p\n", arg);
-    return (void*)(uintptr_t)-5;
-}
-
 int main() {
     malloc(1);
     mkdir("/dev", 0);
@@ -54,34 +49,7 @@ int main() {
         printf("index pci finished: %i\n", status);
     }
 
-    char *filename = "/proc/4/exe";
-    int fd = open(filename, O_SYMLINK | O_RDONLY);
-    struct stat stat;
-    fstat(fd, &stat);
-    char *data = malloc(stat.st_size);
-    read(fd, data, stat.st_size);
-    printf("%s: %s\n", filename, data);
-    free(data);
-    close(fd);
-
-    const int messageFile = open("/dev/cpuid/0", O_RDWR);
-
-    uint32_t cpuidMessage[4];
-    read(messageFile, cpuidMessage, 16);
-    close(messageFile);
-    printf("Processor manufacturer id: \"%s\"\n", (char *)(void *)cpuidMessage);
-
-    char buf;
-    read(STDIN_FILENO, &buf, 1);
-    pthread_t thread;
-    pthread_create(&thread, NULL, thread_demo, (void*)(uintptr_t)-3);
-
-    read(STDIN_FILENO, &buf, 1);
-    void *result;
-    printf("started thread\n");
-    pthread_join(thread, &result);
-    printf("thread result: %p\n", result);
-
+    uint8_t buf;
     while (1) {
         read(STDIN_FILENO, &buf, 1);
         printf("in: %x\n", buf);

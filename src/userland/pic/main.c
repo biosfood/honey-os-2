@@ -82,8 +82,8 @@ int main(char **argv, int argc) {
     control_slave_fd = open("/dev/port/0xA0", O_RDWR);
     data_slave_fd = open("/dev/port/0xA1", O_RDWR);
 
-    // only unmasking one for now...
-    uint32_t d = ~(1 << 4);
+    // unmasiking serial and PIT
+    uint32_t d = ~(1 << 4 | 1 << 0);
 
     write(data_master_fd, &d, 1);
     d = 0xFF;

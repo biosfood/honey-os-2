@@ -39,11 +39,17 @@ int main() {
     } else {
         read(STDIN_FILENO, &status, 1);
     }
+    pid = fork();
+    if (!pid) {
+        execv("/bin/pit", args);
+    } else {
+        read(STDIN_FILENO, &status, 1);
+    }
 
     printf("Hello World!\n");
     pid = fork();
     if (!pid) {
-        execv("/bin/index-pci", NULL);
+        execv("/bin/index-pci", args);
     } else {
         waitpid(pid, &status, WUNTRACED);
         printf("index pci finished: %i\n", status);

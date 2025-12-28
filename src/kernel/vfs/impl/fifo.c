@@ -15,7 +15,7 @@ void fifo_write_descriptor(FiFoData *fifo_data, void *write_data,
         uint32_t bytes_to_transfer = MIN(len, fifo_data->len);
         memcpy(write_data, fifo_data->write_data, bytes_to_transfer);
         listAdd(&threads_to_process, fifo_data->thread);
-        if (bytes_to_transfer < fifo_data->len) {
+        if (bytes_to_transfer < len) {
             PipeData *entry = malloc(sizeof(PipeData));
             entry->length = len - bytes_to_transfer;
             entry->data = malloc(entry->length);
@@ -76,5 +76,7 @@ void fifo_read(void *write_data, uint32_t len, FiFoData *fifo,
         free(data->data);
         free(data);
     }
-    listAdd(&threads_to_process, thread);
+    if (thread) {
+        listAdd(&threads_to_process, thread);
+    }
 }

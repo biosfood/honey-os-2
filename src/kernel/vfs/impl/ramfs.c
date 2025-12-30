@@ -140,7 +140,7 @@ void fill_dirent(FillDirData *buf, char *name, int file_type) {
 }
 
 void ramfs_read(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
-                struct ProcessThread *thread, struct FileDescriptor *descriptor,
+                ProcessThread *thread, FileDescriptor *descriptor,
                 uint32_t *bytes_read) {
     if (file->type == FILE_TYPE_FILE) {
         uint32_t bytes_to_read =

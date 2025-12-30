@@ -12,12 +12,16 @@
 
 void *readLoop(void *) {
     int irq_fd;
-    int write_fd = open("/dev/serin", O_RDWR);
+    // notify ready, send a byte
+    char d = '\n';
+    int write_fd = open("/dev/tty1/in", O_WRONLY);
+    write(write_fd, &d, 1);
+    close(write_fd);
 
+    write_fd = open("/dev/serial/in", O_WRONLY);
     int data = open("/dev/port/0x3F8", O_RDWR);
     // everything is set up, notify everyone (the init system) by sending a byte
     uint32_t buf = 0;
-    write(write_fd, &buf, 1);
     while ((irq_fd = open("/dev/pic/4", O_RDONLY)) < 0);
     while (1) {
         buf = 0;
@@ -34,7 +38,7 @@ void *readLoop(void *) {
 char buffer[1024];
 
 void main() {
-    int fd = open("/dev/serout", O_RDONLY);
+    int fd = open("/dev/serial/out", O_RDONLY);
 
     int rbr = open("/dev/port/1016", O_WRONLY);
     int ier = open("/dev/port/1017", O_WRONLY);

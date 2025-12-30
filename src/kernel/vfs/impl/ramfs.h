@@ -7,7 +7,7 @@
 #include <vfs.h>
 
 typedef struct {
-    File;
+    struct File;
     char *name;
     uint32_t size;
 } RamFsFile;

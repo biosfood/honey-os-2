@@ -100,7 +100,7 @@ int main(char **argv, int argc) {
     }
     // notify ready, send a byte
     d = '\n';
-    int write_fd = open("/dev/serin", O_WRONLY);
+    int write_fd = open("/dev/tty1/in", O_WRONLY);
     write(write_fd, &d, 1);
     close(write_fd);
 

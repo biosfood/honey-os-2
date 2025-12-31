@@ -104,7 +104,7 @@ void kernelMain(void *multibootInfo) {
             if (shutdown) {
                 break;
             } else {
-                asm("sti;hlt;cli");
+                asm("push %ebp;sti;hlt;cli;pop %ebp");
             }
         }
     }

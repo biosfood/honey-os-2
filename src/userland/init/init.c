@@ -69,13 +69,13 @@ int main() {
         printf("index pci finished: %i\n", status);
     }
 
-    // pid = fork();
-    // if (!pid) {
-    //     execv("/bin/sh", args);
-    // } else {
-    //     waitpid(pid, &status, WUNTRACED);
-    //     printf("sh finished: %i\n", status);
-    // }
+    pid = fork();
+    if (!pid) {
+        execv("/bin/sh", args);
+    } else {
+        waitpid(pid, &status, WUNTRACED);
+        printf("sh finished: %i\n", status);
+    }
 
     uint8_t buf[256];
     while (1) {

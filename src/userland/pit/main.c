@@ -32,7 +32,7 @@ bool initialized = false;
 
 int32_t main() {
     mkdir("/dev/pic", 0);
-    mkfifo("/dev/pic/time_updates", 0);
+    mkfifo("/dev/pic/time_update", 0);
     int update_fd = open("/dev/pic/time_update", O_WRONLY);
     int time_fd = open("/dev/pic/time", O_CREAT | O_WRONLY);
 
@@ -61,8 +61,5 @@ int32_t main() {
     while (1) {
         read(irq_fd, &d, 1);
         systemTime++;
-        if (systemTime % 10000 == 0) {
-            printf("system time is %i ms\n", systemTime);
-        }
     }
 }

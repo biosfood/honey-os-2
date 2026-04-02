@@ -45,6 +45,9 @@ void *_malloc(AllocationBlock *allocationData[12], uint32_t size) {
         }
         bool abort = false;
         for (uint8_t coarse = 0; coarse < 32; coarse++) {
+            if (block->allocatedFine[coarse] == -1) {
+                continue;
+            }
             for (uint8_t fine = 0; fine < 32; fine++) {
                 if (block->blockSize * (32 * coarse + fine + 1) > 3948) {
                     abort = true;

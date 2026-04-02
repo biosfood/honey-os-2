@@ -56,6 +56,8 @@ $(BUILD_FOLDER)/%.s.o: %.s
 userPrograms: initrd build/musl/bin/musl-gcc
 	@echo 'making user programs'
 	@make --silent -C src/userland
+	@echo 'making rust user programs'
+	@make --silent -C src/userland-rust
 
 clean:
 	@echo "clearing build folder"

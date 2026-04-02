@@ -68,6 +68,13 @@ int main() {
         waitpid(pid, &status, WUNTRACED);
         printf("index pci finished: %i\n", status);
     }
+    pid = fork();
+    if (!pid) {
+        execv("/bin/hello-rust", args);
+    } else {
+        waitpid(pid, &status, WUNTRACED);
+        printf("hello-rust finished: %i\n", status);
+    }
 
     pid = fork();
     if (!pid) {

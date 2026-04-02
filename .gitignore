@@ -7,3 +7,4 @@ rootfs/initrd.tar
 initrd
 bochsrc
 .idea
+__pycache__/

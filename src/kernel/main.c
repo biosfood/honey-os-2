@@ -89,9 +89,29 @@ void loadAndScheduleSystemServices(void *multibootInfo) {
     newContainer(fs);
 }
 
+void enable_fpu_and_sse(void) {
+    uint32_t cr0, cr4;
+    __asm__ volatile("mov %%cr0, %0" : "=r"(cr0));
+    // Clear the EM (Emulation) bit - Bit 2
+    cr0 &= ~(1 << 2);
+    // Set the MP (Monitor Co-processor) bit - Bit 1
+    cr0 |= (1 << 1);
+
+    __asm__ volatile("mov %0, %%cr0" :: "r"(cr0));
+    __asm__ volatile("mov %%cr4, %0" : "=r"(cr4));
+    // Set the OSFXSR bit - Bit 9
+    cr4 |= (1 << 9);
+    // Set the OSXMMEXCPT bit - Bit 10
+    cr4 |= (1 << 10);
+
+    __asm__ volatile("mov %0, %%cr4" :: "r"(cr4));
+    __asm__ volatile("fninit");
+}
+
 void kernelMain(void *multibootInfo) {
     asm("cli");
     reservePagesUntilPhysical(0x900);
+    enable_fpu_and_sse();
     loadAndScheduleSystemServices(multibootInfo);
     setupSyscalls();
     registerInterrupts();

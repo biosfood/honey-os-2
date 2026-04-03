@@ -45,6 +45,8 @@ void handleMmapSyscall(ProcessThread *thread) {
         for (uint32_t i = 0; i < pagesCount; i++) {
             PhysicalMemoryEntry *physical =
                 get_single_page_physical_memory_entry();
+            void * data = mapTemporaryA(physical->physical);
+            memset(data, 0, 0x1000);
             MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
             mapping->physical = physical;
             physical->refcount++;

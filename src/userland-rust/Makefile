@@ -23,7 +23,7 @@ export CARGO_TARGET_I686_UNKNOWN_LINUX_MUSL_RUSTFLAGS = \
 export CC_i686_unknown_linux_musl = $(CC)
 default: all
 
-all: $(PROGRAMS) $(MUSL_LIB_DIR)/libunwind.a
+all: $(MUSL_LIB_DIR)/libunwind.a $(PROGRAMS)
 
 clean:
 	@for dir in $(PROGRAM_NAMES); do \

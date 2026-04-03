@@ -9,7 +9,6 @@
 #include <unistd.h>
 
 int main() {
-    malloc(1);
     mkdir("/dev", 0);
 
     mkdir("/dev/serial", 0);

@@ -23,7 +23,6 @@ void *handle_output(void *_) {
 
 
 int main() {
-    malloc(1);
     in_fd_raw = open("/dev/serial/in", O_RDONLY);
     in_fd_processed = open("/dev/tty1/in", O_WRONLY);
 

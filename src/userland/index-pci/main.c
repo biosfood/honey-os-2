@@ -181,7 +181,6 @@ void initializePci() {
 }
 
 void main() {
-    malloc(1);
     config_address_fd = open("/dev/port/3320", O_RDWR);
     config_data_fd = open("/dev/port/3324", O_RDWR);
     mkdir("/dev/pci", 0);

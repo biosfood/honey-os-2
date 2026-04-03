@@ -73,8 +73,6 @@ void *handler(void *param) {
 
 
 int main(char **argv, int argc) {
-    // currently needed as there is a bug breaking free() with multitasking...
-    malloc(1);
     mkdir("/dev/pic", 0);
 
     control_master_fd = open("/dev/port/0x20", O_RDWR);

@@ -3,7 +3,7 @@ CARGO_CMD = $(CARGO) +nightly
 CC = $(abspath ../../build/musl/bin/musl-gcc)
 LD_FLAGS = -m32 -z max-page-size=0x1000
 
-PROGRAM_NAMES := hello-rust
+PROGRAM_NAMES := $(shell ls -d */ | sed "s/\/$$//" | sed "s|build||")
 PROGRAMS := $(PROGRAM_NAMES:%=../../initrd/bin/%)
 MUSL_LIB_DIR = $(abspath ../../build/musl/lib)
 GCC_LIB_DIR := $(dir $(shell $(CC) -print-libgcc-file-name))

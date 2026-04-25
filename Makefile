@@ -1,4 +1,4 @@
-IMAGE_FILE = /run/user/1000/honey-os.img
+IMAGE_FILE = honey-os.img
 
 export CC=i686-elf-gcc
 export AR=i686-elf-ar
@@ -9,7 +9,7 @@ LD_FLAGS = -z max-page-size=0x1000 -T link.ld
 AS = nasm
 ASFlAGS = -felf32 -w-zeroing
 EMU = qemu-system-i386
-EMUFLAGS = -m 1G -drive if=none,id=stick,format=raw,file=$(IMAGE_FILE) -no-reboot -no-shutdown -monitor unix:qemu-monitor-socket,server,nowait -serial stdio -d int -D crashlog.log -d int -device qemu-xhci -device usb-mouse -device usb-storage,drive=stick -device usb-kbd -gdb tcp::9000
+EMUFLAGS = -m 1G -nographic -drive if=none,id=stick,format=raw,file=$(IMAGE_FILE) -no-reboot -no-shutdown -monitor unix:qemu-monitor-socket,server,nowait -serial stdio -d int -D crashlog.log -d int -device qemu-xhci -device usb-mouse -device usb-storage,drive=stick -device usb-kbd -gdb tcp::9000
 
 BUILD_FOLDER = build
 
@@ -70,7 +70,7 @@ clean:
 export CROSS_COMPILE=i386-elf-
 MUSL_BUILD_DIR := $(abspath build/musl)
 build/musl/config.mak: build
-	cd build/musl && ../../../musl/configure --target=i386-elf --enable-debug --disable-shared --exec-prefix=$(MUSL_BUILD_DIR) --prefix=$(MUSL_BUILD_DIR) --syslibdir=$(MUSL_BUILD_DIR)
+	cd build/musl && ../../musl/configure --target=i386-elf --enable-debug --disable-shared --exec-prefix=$(MUSL_BUILD_DIR) --prefix=$(MUSL_BUILD_DIR) --syslibdir=$(MUSL_BUILD_DIR)
 
 musl-lib: build/musl/config.mak
 	cd build/musl && make -j8 && make install

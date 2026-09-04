@@ -16,10 +16,17 @@ typedef struct KernelFsFile {
 } KernelFsFile;
 
 typedef struct {
+    uint32_t physical_base;
+    uint32_t size;
+} KernelFsMemRange;
+
+typedef struct {
     FileSystem;
     KernelFsFile rootDir;
     KernelFsFile mem;
     KernelFsFile null;
 } KernelFsFileSystem;
+
+extern KernelFsFileSystem kernel_fs_file_system;
 
 #endif // KERNELFS_H

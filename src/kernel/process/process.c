@@ -61,9 +61,18 @@ void handleForkSyscall(ProcessThread *thread) {
                                   malloc(sizeof(MemoryMapping));
                               mapping->virtual = original_mapping->virtual;
                               mapping->physical = original_mapping->physical;
-                              original_mapping->physical->refcount++;
-                              mapping->copy_on_write = true;
-                              original_mapping->copy_on_write = true;
+                              if (original_virtual->type == MEM_TYPE_MMIO) {
+                                  mapping->copy_on_write = false;
+                                  if (original_mapping->physical) {
+                                      original_mapping->physical->refcount++;
+                                  }
+                              } else {
+                                  if (original_mapping->physical) {
+                                      original_mapping->physical->refcount++;
+                                  }
+                                  mapping->copy_on_write = true;
+                                  original_mapping->copy_on_write = true;
+                              }
                               listAdd(&virtual->mappings, mapping);
                           })
                      ;
@@ -73,6 +82,18 @@ void handleForkSyscall(ProcessThread *thread) {
     foreach (
         process->virtual_memory_entries, VirtualMemoryEntry *,
         virtual_memory_entry, {
+            if (virtual_memory_entry->type == MEM_TYPE_MMIO) {
+                foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
+                    for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
+                        mapPage(&process->memory_information,
+                                mapping->physical->physical + 4096 * i,
+                                mapping->virtual + 4096 * i,
+                                true,
+                                true);
+                    }
+                });
+                continue;
+            }
             foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
                 for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
                     map(&process->memory_information,
@@ -84,10 +105,13 @@ void handleForkSyscall(ProcessThread *thread) {
                 ;
         })
         ;
-    // make old data no longer writable for the original process as well.
+    // make old data no longer writable for the original process as well (except MMIO).
     foreach (
         thread->process->virtual_memory_entries, VirtualMemoryEntry *,
         virtual_memory_entry, {
+            if (virtual_memory_entry->type == MEM_TYPE_MMIO) {
+                continue;
+            }
             foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
                 for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
                     map(&thread->process->memory_information,
@@ -147,6 +171,20 @@ void handleExecSyscall(ProcessThread *thread) {
         strlen(file_descriptor->path) + 1;
 
     foreach (process->virtual_memory_entries, VirtualMemoryEntry *, virtual, {
+        if (virtual->type == MEM_TYPE_MMIO) {
+            foreach (virtual->mappings, MemoryMapping *, mapping, {
+                unmapPageFrom(&process->memory_information, mapping->virtual);
+                if (mapping->physical) {
+                    mapping->physical->refcount--;
+                    if (mapping->physical->refcount == 0) {
+                        free(mapping->physical);
+                    }
+                }
+                free(mapping);
+            });
+            listClear(virtual->mappings);
+            continue;
+        }
         foreach (virtual->mappings, MemoryMapping *, mapping, {
             unmapPageFrom(&process->memory_information,
                           mapping->physical->physical);

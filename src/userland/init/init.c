@@ -161,6 +161,14 @@ int main() {
 
     pid = fork();
     if (!pid) {
+        execv("/bin/test-mmio", args);
+    } else {
+        waitpid(pid, &status, WUNTRACED);
+        printf("test-mmio finished: %i\r\n", status);
+    }
+
+    pid = fork();
+    if (!pid) {
         execv("/bin/hello-rust", args);
     } else {
         waitpid(pid, &status, WUNTRACED);

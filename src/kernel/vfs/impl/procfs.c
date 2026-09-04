@@ -112,6 +112,8 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
         *result = (void *)&process->process_files[PROC_FILE_STATUS];
     } else if (stringEquals(filename, "threads")) {
         *result = (void *)&process->process_files[PROC_FILE_TASKS];
+    } else if (stringEquals(filename, "pagemap")) {
+        *result = (void *)&process->process_files[PROC_FILE_PAGEMAP];
     } else {
         *result = NULL;
     }
@@ -205,6 +207,40 @@ void procfs_read(ProcessFile *file, void *data, uint32_t size, uint32_t offset,
             memcpy(file->data + offset, data, *bytes_read);
         }
         break;
+    case PROC_FILE_PAGEMAP: {
+        uint32_t bytes_to_read = size;
+        uint32_t current_offset = offset;
+        uint8_t *dest = (uint8_t *)data;
+        uint32_t total_read = 0;
+
+        while (bytes_to_read > 0) {
+            uint32_t page_idx = current_offset / 8;
+            uint32_t byte_in_entry = current_offset % 8;
+            uint32_t chunk = 8 - byte_in_entry;
+            if (chunk > bytes_to_read) {
+                chunk = bytes_to_read;
+            }
+
+            void *vaddr = ADDRESS(page_idx);
+            void *phys = getPhysicalAddress(
+                file->process->memory_information.pageDirectory, vaddr);
+            uint64_t entry = 0;
+            if (phys != NULL) {
+                uint64_t pfn = ((uintptr_t)phys) >> 12;
+                entry = (pfn & 0x7FFFFFFFFFFFFFULL) | (1ULL << 63);
+            }
+
+            uint8_t *entry_bytes = (uint8_t *)&entry;
+            memcpy(entry_bytes + byte_in_entry, dest + total_read, chunk);
+
+            total_read += chunk;
+            bytes_to_read -= chunk;
+            current_offset += chunk;
+        }
+
+        *bytes_read = total_read;
+        break;
+    }
     default:
         break;
     }
@@ -321,6 +357,13 @@ void initialize_proc_files(Process *process, char *exe) {
     process->process_files[PROC_FILE_TASKS].data = NULL;
     process->process_files[PROC_FILE_TASKS].file_descriptors = NULL;
     process->process_files[PROC_FILE_TASKS].file_type = PROC_FILE_TASKS;
+
+    process->process_files[PROC_FILE_PAGEMAP].process = process;
+    process->process_files[PROC_FILE_PAGEMAP].type = FILE_TYPE_FILE;
+    process->process_files[PROC_FILE_PAGEMAP].length = 0;
+    process->process_files[PROC_FILE_PAGEMAP].data = NULL;
+    process->process_files[PROC_FILE_PAGEMAP].file_descriptors = NULL;
+    process->process_files[PROC_FILE_PAGEMAP].file_type = PROC_FILE_PAGEMAP;
 }
 
 void initialize_thread_files(ProcessThread *thread) {

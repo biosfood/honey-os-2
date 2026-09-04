@@ -123,6 +123,7 @@ enum ProcFiles {
     PROC_FILE_WORKDIR,
     PROC_FILE_STATUS,
     PROC_FILE_TASKS,
+    PROC_FILE_PAGEMAP,
 
     // workaround to statically get the number of files
     PROC_FILE_MAX,

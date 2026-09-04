@@ -1,5 +1,6 @@
 #include "paging.h"
 #include <memory.h>
+#include <stddef.h>
 #include <util.h>
 
 PageTableEntry *kernelCodePageTable, *kernelDataPageTable;
@@ -45,10 +46,19 @@ void *mapTemporaryB(void *physical) {
 }
 
 void *getPhysicalAddress(PageDirectoryEntry *pageDirectory, void *address) {
+    if (!pageDirectory) {
+        return NULL;
+    }
     VirtualAddress *virtual = (void *)&address;
+    if (!pageDirectory[virtual->pageDirectoryIndex].present) {
+        return NULL;
+    }
     uint32_t pageTableId =
         pageDirectory[virtual->pageDirectoryIndex].pageTableID;
     PageTableEntry *pageTable = mapTemporaryA(ADDRESS(pageTableId));
+    if (!pageTable[virtual->pageTableIndex].present) {
+        return NULL;
+    }
     uint32_t pageBase = pageTable[virtual->pageTableIndex].targetAddress;
     return ADDRESS(pageBase) + PAGE_OFFSET(address);
 }

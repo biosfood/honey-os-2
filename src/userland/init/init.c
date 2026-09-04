@@ -169,6 +169,14 @@ int main() {
 
     pid = fork();
     if (!pid) {
+        execv("/bin/test-dma", args);
+    } else {
+        waitpid(pid, &status, WUNTRACED);
+        printf("test-dma finished: %i\r\n", status);
+    }
+
+    pid = fork();
+    if (!pid) {
         execv("/bin/hello-rust", args);
     } else {
         waitpid(pid, &status, WUNTRACED);

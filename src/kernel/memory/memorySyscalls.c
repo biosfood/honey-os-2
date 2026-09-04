@@ -26,6 +26,7 @@ void handleMmapSyscall(ProcessThread *thread) {
     uint32_t pagesCount = pageCount(threadArgs->len);
 
     if (threadArgs->filedes == -1 && (threadArgs->flags & MAP_ANON)) {
+        bool isShared = (threadArgs->flags & MAP_SHARED);
         void *target = threadArgs->addr;
         uint32_t virtualStart = PAGE_ID(target);
         if (!target) {
@@ -38,19 +39,32 @@ void handleMmapSyscall(ProcessThread *thread) {
             malloc(sizeof(VirtualMemoryEntry));
         virtual_memory_entry->virtual = ADDRESS(virtualStart);
         virtual_memory_entry->process = thread->process;
-        virtual_memory_entry->type = MEM_TYPE_HEAP;
+        virtual_memory_entry->type = isShared ? MEM_TYPE_SHARED : MEM_TYPE_HEAP;
         virtual_memory_entry->mappings = NULL;
         virtual_memory_entry->size = pagesCount * 4096;
         listAdd(&thread->process->virtual_memory_entries, virtual_memory_entry);
 
+        uint32_t physContigStart = 0;
+        if (isShared) {
+            physContigStart = findMultiplePages(kernelPhysicalPages, pagesCount);
+            reservePagesCount(kernelPhysicalPages, physContigStart, pagesCount);
+        }
+
         for (uint32_t i = 0; i < pagesCount; i++) {
-            PhysicalMemoryEntry *physical =
-                get_single_page_physical_memory_entry();
+            PhysicalMemoryEntry *physical;
+            if (isShared) {
+                physical = malloc(sizeof(PhysicalMemoryEntry));
+                physical->physical = ADDRESS(physContigStart + i);
+                physical->page_count = 1;
+                physical->refcount = 1;
+            } else {
+                physical = get_single_page_physical_memory_entry();
+                physical->refcount++;
+            }
             void * data = mapTemporaryA(physical->physical);
             memset(data, 0, 0x1000);
             MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
             mapping->physical = physical;
-            physical->refcount++;
             mapping->virtual = ADDRESS(virtualStart + i);
             mapping->copy_on_write = false;
             map(&thread->process->memory_information, physical->physical,

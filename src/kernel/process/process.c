@@ -61,7 +61,8 @@ void handleForkSyscall(ProcessThread *thread) {
                                   malloc(sizeof(MemoryMapping));
                               mapping->virtual = original_mapping->virtual;
                               mapping->physical = original_mapping->physical;
-                              if (original_virtual->type == MEM_TYPE_MMIO) {
+                              if (original_virtual->type == MEM_TYPE_MMIO ||
+                                  original_virtual->type == MEM_TYPE_SHARED) {
                                   mapping->copy_on_write = false;
                                   if (original_mapping->physical) {
                                       original_mapping->physical->refcount++;
@@ -82,14 +83,15 @@ void handleForkSyscall(ProcessThread *thread) {
     foreach (
         process->virtual_memory_entries, VirtualMemoryEntry *,
         virtual_memory_entry, {
-            if (virtual_memory_entry->type == MEM_TYPE_MMIO) {
+            if (virtual_memory_entry->type == MEM_TYPE_MMIO ||
+                virtual_memory_entry->type == MEM_TYPE_SHARED) {
                 foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
                     for (uint32_t i = 0; i < mapping->physical->page_count; i++) {
                         mapPage(&process->memory_information,
                                 mapping->physical->physical + 4096 * i,
                                 mapping->virtual + 4096 * i,
                                 true,
-                                true);
+                                virtual_memory_entry->type == MEM_TYPE_MMIO);
                     }
                 });
                 continue;
@@ -105,11 +107,12 @@ void handleForkSyscall(ProcessThread *thread) {
                 ;
         })
         ;
-    // make old data no longer writable for the original process as well (except MMIO).
+    // make old data no longer writable for the original process as well (except MMIO and SHARED).
     foreach (
         thread->process->virtual_memory_entries, VirtualMemoryEntry *,
         virtual_memory_entry, {
-            if (virtual_memory_entry->type == MEM_TYPE_MMIO) {
+            if (virtual_memory_entry->type == MEM_TYPE_MMIO ||
+                virtual_memory_entry->type == MEM_TYPE_SHARED) {
                 continue;
             }
             foreach (virtual_memory_entry->mappings, MemoryMapping *, mapping, {
@@ -187,7 +190,7 @@ void handleExecSyscall(ProcessThread *thread) {
         }
         foreach (virtual->mappings, MemoryMapping *, mapping, {
             unmapPageFrom(&process->memory_information,
-                          mapping->physical->physical);
+                          mapping->virtual);
             mapping->physical->refcount--;
             if (mapping->physical->refcount == 0) {
                 // noone is using this page anymore, so we can free it up!

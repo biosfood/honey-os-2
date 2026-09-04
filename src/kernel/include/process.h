@@ -36,6 +36,7 @@ enum MemoryType {
     MEM_TYPE_PAGING,
     MEM_TYPE_MMAP_FILE,
     MEM_TYPE_MMIO,
+    MEM_TYPE_SHARED,
 };
 
 typedef struct MemoryMapping {

@@ -142,7 +142,7 @@ void fill_dirent(FillDirData *buf, char *name, int file_type) {
 void ramfs_read(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
                 ProcessThread *thread, FileDescriptor *descriptor,
                 uint32_t *bytes_read) {
-    if (file->type == FILE_TYPE_FILE) {
+    if (file->type == FILE_TYPE_FILE || file->type == FILE_TYPE_SYMLINK) {
         uint32_t bytes_to_read =
             MAX(0, MIN((int32_t)size, (int32_t)(file->size - offset)));
         if (!bytes_to_read) {

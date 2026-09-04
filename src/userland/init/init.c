@@ -70,34 +70,26 @@ void *supervisor_worker(void *arg) {
 }
 
 void start_supervised_service(struct Service *svc) {
-    char proc_path[32];
+    int stdout_pipe[2];
+    int ready_pipe[2];
 
-    // Create stdout pipe
-    int rfd = open("/kernel/pipe", O_RDONLY);
-    snprintf(proc_path, sizeof(proc_path), "/proc/self/fd/%d", rfd);
-    int wfd = open(proc_path, O_WRONLY);
+    if (pipe(stdout_pipe) < 0 || pipe(ready_pipe) < 0) {
+        return;
+    }
 
-    // Create ready notification pipe
-    int ready_rfd = open("/kernel/pipe", O_RDONLY);
-    snprintf(proc_path, sizeof(proc_path), "/proc/self/fd/%d", ready_rfd);
-    int ready_wfd = open(proc_path, O_WRONLY);
-
-    svc->stdout_pipe_read = rfd;
-    svc->ready_pipe_read = ready_rfd;
-    svc->ready_pipe_write = ready_wfd;
+    svc->stdout_pipe_read = stdout_pipe[0];
+    svc->ready_pipe_read = ready_pipe[0];
+    svc->ready_pipe_write = ready_pipe[1];
 
     pid_t pid = fork();
     if (!pid) {
-        // In child: redirect stdout to wfd
-        close(STDOUT_FILENO);
-        char child_wfd_path[32];
-        snprintf(child_wfd_path, sizeof(child_wfd_path), "/proc/self/fd/%d", wfd);
-        open(child_wfd_path, O_WRONLY); // allocates fd 1 (STDOUT)
+        // In child: redirect stdout to stdout_pipe[1]
+        dup2(stdout_pipe[1], STDOUT_FILENO);
 
-        close(rfd);
-        close(wfd);
-        close(ready_rfd);
-        close(ready_wfd);
+        close(stdout_pipe[0]);
+        close(stdout_pipe[1]);
+        close(ready_pipe[0]);
+        close(ready_pipe[1]);
 
         char *args[] = { NULL };
         execv(svc->path, args);
@@ -105,7 +97,7 @@ void start_supervised_service(struct Service *svc) {
     }
 
     // In parent:
-    close(wfd); // parent doesn't write to child stdout
+    close(stdout_pipe[1]); // parent doesn't write to child stdout
     svc->pid = pid;
 
     // Start supervisor thread

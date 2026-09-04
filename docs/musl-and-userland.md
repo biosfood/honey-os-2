@@ -107,6 +107,8 @@ In [`/home/lukas/projects/musl/src/internal/translate_call.c`](file:///home/luka
 | `SYS_mkdir` | `_mkdir_()` -> opens parent directory and calls `HONEY_SYS_FILE_CREATE` with `FILE_TYPE_DIRECTORY`. |
 | `SYS_mknod` | If `mode & S_IFIFO`, calls `_create_()` with `FILE_TYPE_FIFO`. |
 | `SYS_fstat` / `SYS_statx` | `_fstat_()` -> `HONEY_SYS_STAT` |
+| `SYS_pipe` / `SYS_pipe2` | `_pipe_()` / `_pipe2_()`: opens `/kernel/pipe` (`O_RDONLY`), then opens `/proc/self/fd/<rfd>` (`O_WRONLY`), returning reader and writer handles. |
+| `SYS_dup` / `SYS_dup2` / `SYS_dup3` | `_dup_()` / `_dup2_()` / `_dup3_()`: duplicates descriptor by opening `/proc/self/fd/<oldfd>` with tracked access flags (and for `dup2`/`dup3`, incrementally allocating descriptors to target `newfd`). |
 | `SYS_set_thread_area` | Calls `syscall_impl(HONEY_SYS_SET_GP, a1, 0, 0, 0)` |
 | `SYS_get_thread_area` | Returns `%gs:0` via inline assembly. |
 | `SYS_exit` / `SYS_exit_group` | `_exit_()`: Opens `/proc/self/status` and writes 4-byte exit status. |
@@ -195,6 +197,8 @@ Every commit in `honey-os-musl` (`/home/lukas/projects/musl`) since cloning from
    - Replaced inline Linux `int $128` syscall dispatch with `translate_call(n, a1, a2, a3, a4, a5, a6)` for all `__syscall0` through `__syscall6`.
 2. **[`src/internal/translate_call.c`](file:///home/lukas/projects/musl/src/internal/translate_call.c)** *(NEW FILE)*:
    - Maps Linux `SYS_*` numbers to HoneyOS native syscalls (`HONEY_SYS_*`) via `syscall_impl()`.
+   - Translates `pipe()` and `pipe2()` into opening `/kernel/pipe` and duplicating via `/proc/self/fd/<id>`.
+   - Translates `dup()`, `dup2()`, and `dup3()` into opening `/proc/self/fd/<oldfd>` with preserved descriptor access modes.
    - Translates `exit()` and `exit_group()` into writing to `/proc/self/status`.
    - Translates `wait4()` and `waitid()` into reading from `/proc/<pid>/status`.
    - Implements `_brk_()` stub forcing heap expansion failure so musl uses `mmap()`.

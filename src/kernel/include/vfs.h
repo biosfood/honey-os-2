@@ -73,6 +73,7 @@ typedef struct {
                  struct ProcessThread *thread,
                  struct FileDescriptor *descriptor, uint32_t *bytes_read);
     uint32_t (*getattr)(File *file, struct stat *stbuf, struct ProcessThread *thread);
+    void (*close)(File *file, struct FileDescriptor *descriptor);
 } FileSystemType;
 
 typedef struct FileSystem {

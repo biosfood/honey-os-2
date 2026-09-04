@@ -52,12 +52,10 @@ int32_t main() {
     int irq_fd;
     while ((irq_fd = open("/dev/pic/0x0", O_RDONLY)) < 0);
 
-    // notify ready, send a byte
-    uint8_t d = '\n';
-    int write_fd = open("/dev/tty1/in", O_WRONLY);
-    write(write_fd, &d, 1);
-    close(write_fd);
+    // notify ready, send a byte to stdout
+    write(STDOUT_FILENO, "ready\n", 6);
 
+    uint8_t d;
     while (1) {
         read(irq_fd, &d, 1);
         systemTime++;

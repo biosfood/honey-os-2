@@ -104,6 +104,13 @@ void handleForkSyscall(ProcessThread *thread) {
              file_descriptor, {
                  FileDescriptor *new = malloc(sizeof(FileDescriptor));
                  memcpy(file_descriptor, new, sizeof(FileDescriptor));
+                 new->path = file_descriptor->path ? combineStrings("", file_descriptor->path) : NULL;
+                 new->fifo_data.queue = NULL;
+                 new->fifo_data.thread = NULL;
+                 new->fifo_data.write_data = NULL;
+                 new->fifo_data.bytes_read = NULL;
+                 new->fifo_data.len = 0;
+                 new->process = process;
                  listAdd(&process->openFileHandles, new);
                  listAdd(&new->file->file_descriptors, new);
              })
@@ -185,10 +192,13 @@ void reap_process(Process *process) {
 }
 
 void close_file_descriptor(FileDescriptor *descriptor) {
-    // descriptor->file->file_system->type->close(descriptor->file);
-    // TODO
-    listRemoveValue(&descriptor->file->file_descriptors, descriptor);
+    File *file = descriptor->file;
+    listRemoveValue(&file->file_descriptors, descriptor);
+    if (file->file_system && file->file_system->type && file->file_system->type->close) {
+        file->file_system->type->close(file, descriptor);
+    }
     free(descriptor->path);
+    free(descriptor);
 }
 
 void process_destroy(Process *process) {
@@ -205,10 +215,12 @@ void process_exit(Process *process, int32_t return_code) {
     foreach (process->threads, ProcessThread *, thread,
              { terminate_thread(thread); })
         ;
-    foreach (process->openFileHandles, FileDescriptor *, descriptor,
-             { close_file_descriptor(descriptor); })
-        ;
+    for (ListElement *curr = process->openFileHandles; curr; curr = curr->next) {
+        close_file_descriptor(curr->data);
+        curr->data = NULL;
+    }
     listClear(process->openFileHandles);
+    process->openFileHandles = NULL;
 
     process->reap_info.exit_code = return_code;
     process->reap_info.exited = true;

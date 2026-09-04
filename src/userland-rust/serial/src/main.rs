@@ -32,7 +32,7 @@ fn main() {
     drop(lcr);
     drop(mcr);
     // notify the init system we are ready!
-    File::create("/dev/tty1/in").unwrap().write("\n".as_bytes()).unwrap();
+    println!("ready");
     thread::spawn(|| {
         let mut data_file = File::open("/dev/port/0x3F8").unwrap();
 

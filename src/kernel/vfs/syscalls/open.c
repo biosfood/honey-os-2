@@ -43,6 +43,7 @@ void handleOpenSyscall(ProcessThread *thread) {
     case OPEN_POST:
         if (state->file == NULL ||
             (state->file->type == FILE_TYPE_DIRECTORY && !(thread->parameters[1] & O_SEARCH))) {
+            free(state->filename);
             thread->returnValue = -1;
         } else {
             FileDescriptor *file_descriptor =

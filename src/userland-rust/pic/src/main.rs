@@ -153,10 +153,7 @@ fn main() {
     }
 
     // Notify the init system that the PIC driver is ready
-    File::create("/dev/tty1/in")
-        .unwrap()
-        .write_all(b"\n")
-        .unwrap();
+    println!("ready");
 
     for handle in handles {
         let _ = handle.join();

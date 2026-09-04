@@ -5,6 +5,7 @@
 #include <process.h>
 #include <stddef.h>
 #include <sys/stat.h>
+#include <util.h>
 
 bool read_integer_from_filename(char **filename, uint32_t *data) {
     char *text = *filename;
@@ -45,7 +46,7 @@ bool read_integer_from_filename(char **filename, uint32_t *data) {
 
 FileDescriptor *allocateFileDescriptor(Process *process) {
     FileDescriptor *descriptor = malloc(sizeof(FileDescriptor));
-    descriptor->id = 0;
+    memset(descriptor, 0, sizeof(FileDescriptor));
 
     ListElement *list_element = malloc(sizeof(ListElement));
     list_element->data = descriptor;

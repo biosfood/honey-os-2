@@ -110,7 +110,7 @@ char *mountlist_lookup(FileSystem *file_system, char *path, Mount **mount) {
         }
     })
         ;
-    if (!mount) {
+    if (!mount || !*mount) {
         return NULL;
     }
     return combineStrings((*mount)->pathOffset,
@@ -143,6 +143,7 @@ FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
         clean_path(path);
         state->current_path = malloc(strlen(path) + 2);
         memcpy(path, state->current_path, strlen(path));
+        state->current_path[strlen(path)] = 0;
         state->current_path[strlen(path) + 1] = 0; // no remainder for start
         state->fs_scratchpad = NULL;
 
@@ -160,6 +161,7 @@ FileOperationStatus mountlist_get_file(FileSystem *file_system, char *path,
         FileOperationStatus status = mount->file_system->type->getFile(
             mount->file_system, real_path, thread, result,
             &state->fs_scratchpad, options);
+        free(real_path);
         if (status != FILE_OPERATION_DONE) {
             // fs should schedule us at some point
             return status;

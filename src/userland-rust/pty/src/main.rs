@@ -10,10 +10,7 @@ fn main() {
     let mut out_fd_processed = File::open("/dev/tty1/out").unwrap();
 
     // Notify the init system that we are ready
-    File::create("/dev/tty1/in")
-        .unwrap()
-        .write_all(b"\n")
-        .unwrap();
+    println!("ready");
 
     // Forward processed output from programs to the raw serial device
     thread::spawn(move || {

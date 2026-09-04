@@ -27,25 +27,49 @@ FileOperationStatus procfs_get(ProcFileSystem *fs, char *filename,
     }
     uint32_t id = 0;
     filename++;
-    if (!read_integer_from_filename(&filename, &id)) {
-        if (filename[0] == 's' && filename[1] == 'e' && filename[2] == 'l' &&
-            filename[3] == 'f' && !filename[4]) {
-            *result = &fs->self_link;
-            return FILE_OPERATION_DONE;
-        }
+    Process *process = NULL;
+    if (stringStartsWith(filename, "self/")) {
+        filename += 5;
+        process = thread->process;
+    } else if (stringEquals(filename, "self")) {
+        *result = &fs->self_link;
+        return FILE_OPERATION_DONE;
+    } else if (read_integer_from_filename(&filename, &id)) {
+        foreach (fs->container->processes, Process *, current_process, {
+            if (current_process->id == id) {
+                process = current_process;
+                break;
+            }
+        })
+            ;
+    } else {
         *result = NULL;
         return FILE_OPERATION_DONE;
     }
-    Process *process = NULL;
-    foreach (fs->container->processes, Process *, current_process, {
-        if (current_process->id == id) {
-            process = current_process;
-            break;
-        }
-    })
-        ;
     if (!process) {
         *result = NULL;
+        return FILE_OPERATION_DONE;
+    }
+    if (stringStartsWith(filename, "fd/")) {
+        filename += 3;
+        uint32_t fd_id = 0;
+        if (!read_integer_from_filename(&filename, &fd_id) || *filename) {
+            *result = NULL;
+            return FILE_OPERATION_DONE;
+        }
+        FileDescriptor *found = NULL;
+        foreach (process->openFileHandles, FileDescriptor *, desc, {
+            if (desc->id == fd_id) {
+                found = desc;
+                break;
+            }
+        })
+            ;
+        if (found) {
+            *result = found->file;
+        } else {
+            *result = NULL;
+        }
         return FILE_OPERATION_DONE;
     }
     if (stringStartsWith(filename, "threads/")) {

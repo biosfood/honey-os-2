@@ -8,6 +8,115 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+struct Service {
+    const char *name;
+    const char *path;
+    int stdout_pipe_read;
+    int ready_pipe_read;
+    int ready_pipe_write;
+    pthread_t thread;
+    pid_t pid;
+};
+
+static volatile int console_ready = 0;
+
+void *supervisor_worker(void *arg) {
+    struct Service *svc = (struct Service *)arg;
+    char buf[256];
+    char line[256];
+    int line_len = 0;
+    int notified = 0;
+
+    while (1) {
+        int n = read(svc->stdout_pipe_read, buf, sizeof(buf));
+        if (n <= 0) {
+            if (!notified) {
+                notified = 1;
+                char b = 0;
+                write(svc->ready_pipe_write, &b, 1);
+            }
+            break;
+        }
+        for (int i = 0; i < n; i++) {
+            if (buf[i] == '\n') {
+                line[line_len] = '\0';
+                if (console_ready) {
+                    char log_buf[300];
+                    int len = snprintf(log_buf, sizeof(log_buf), "[%-8s]: %s\r\n", svc->name, line);
+                    write(STDOUT_FILENO, log_buf, len);
+                }
+                line_len = 0;
+            } else if (buf[i] != '\r' && line_len < (int)sizeof(line) - 1) {
+                line[line_len++] = buf[i];
+            }
+        }
+        if (!notified) {
+            notified = 1;
+            char b = 1;
+            write(svc->ready_pipe_write, &b, 1);
+        }
+    }
+    if (line_len > 0) {
+        line[line_len] = '\0';
+        if (console_ready) {
+            char log_buf[300];
+            int len = snprintf(log_buf, sizeof(log_buf), "[%-8s]: %s\r\n", svc->name, line);
+            write(STDOUT_FILENO, log_buf, len);
+        }
+    }
+    close(svc->stdout_pipe_read);
+    close(svc->ready_pipe_write);
+    return NULL;
+}
+
+void start_supervised_service(struct Service *svc) {
+    char proc_path[32];
+
+    // Create stdout pipe
+    int rfd = open("/kernel/pipe", O_RDONLY);
+    snprintf(proc_path, sizeof(proc_path), "/proc/self/fd/%d", rfd);
+    int wfd = open(proc_path, O_WRONLY);
+
+    // Create ready notification pipe
+    int ready_rfd = open("/kernel/pipe", O_RDONLY);
+    snprintf(proc_path, sizeof(proc_path), "/proc/self/fd/%d", ready_rfd);
+    int ready_wfd = open(proc_path, O_WRONLY);
+
+    svc->stdout_pipe_read = rfd;
+    svc->ready_pipe_read = ready_rfd;
+    svc->ready_pipe_write = ready_wfd;
+
+    pid_t pid = fork();
+    if (!pid) {
+        // In child: redirect stdout to wfd
+        close(STDOUT_FILENO);
+        char child_wfd_path[32];
+        snprintf(child_wfd_path, sizeof(child_wfd_path), "/proc/self/fd/%d", wfd);
+        open(child_wfd_path, O_WRONLY); // allocates fd 1 (STDOUT)
+
+        close(rfd);
+        close(wfd);
+        close(ready_rfd);
+        close(ready_wfd);
+
+        char *args[] = { NULL };
+        execv(svc->path, args);
+        exit(1);
+    }
+
+    // In parent:
+    close(wfd); // parent doesn't write to child stdout
+    svc->pid = pid;
+
+    // Start supervisor thread
+    pthread_create(&svc->thread, NULL, supervisor_worker, svc);
+
+    // Wait until supervisor thread signals readiness
+    char sig;
+    read(svc->ready_pipe_read, &sig, 1);
+    close(svc->ready_pipe_read);
+}
+
 int main() {
     mkdir("/dev", 0);
 
@@ -19,60 +128,51 @@ int main() {
     mkfifo("/dev/tty1/out", 0);
     mkfifo("/dev/tty1/in", 0);
 
-    // reassign STDOUT
+    // reassign STDOUT to tty1/out
     close(STDOUT_FILENO);
     open("/dev/tty1/out", O_WRONLY);
 
-    // reassign STDIN
+    // reassign STDIN to tty1/in
     close(STDIN_FILENO);
     open("/dev/tty1/in", O_RDONLY);
 
-    char *args[] = {0};
+    // Start serial stack first so console output works
+    struct Service pty_svc = { .name = "pty", .path = "/bin/pty" };
+    start_supervised_service(&pty_svc);
+
+    struct Service serial_svc = { .name = "serial", .path = "/bin/serial" };
+    start_supervised_service(&serial_svc);
+
+    // Console output path (tty1/out -> pty -> serial/out -> serial -> COM1) is active
+    console_ready = 1;
+
+    struct Service pic_svc = { .name = "pic", .path = "/bin/pic" };
+    start_supervised_service(&pic_svc);
+
+    struct Service pit_svc = { .name = "pit", .path = "/bin/pit" };
+    start_supervised_service(&pit_svc);
+
+    printf("Hello World!\r\n");
+    fflush(stdout);
+
+    char *args[] = { NULL };
     int status;
     pid_t pid;
 
     pid = fork();
     if (!pid) {
-        execv("/bin/pty", args);
-    } else {
-        read(STDIN_FILENO, &status, 1);
-    }
-
-    pid = fork();
-    if (!pid) {
-        execv("/bin/pic", args);
-    } else {
-        read(STDIN_FILENO, &status, 1);
-    }
-
-    pid = fork();
-    if (!pid) {
-        execv("/bin/serial", args);
-    } else {
-        read(STDIN_FILENO, &status, 1);
-    }
-
-    pid = fork();
-    if (!pid) {
-        execv("/bin/pit", args);
-    } else {
-        read(STDIN_FILENO, &status, 1);
-    }
-
-    printf("Hello World!\n");
-    pid = fork();
-    if (!pid) {
         execv("/bin/index-pci", args);
     } else {
         waitpid(pid, &status, WUNTRACED);
-        printf("index pci finished: %i\n", status);
+        printf("index pci finished: %i\r\n", status);
     }
+
     pid = fork();
     if (!pid) {
         execv("/bin/hello-rust", args);
     } else {
         waitpid(pid, &status, WUNTRACED);
-        printf("hello-rust finished: %i\n", status);
+        printf("hello-rust finished: %i\r\n", status);
     }
 
     pid = fork();
@@ -80,14 +180,13 @@ int main() {
         execv("/bin/sh", args);
     } else {
         waitpid(pid, &status, WUNTRACED);
-        printf("sh finished: %i\n", status);
+        printf("sh finished: %i\r\n", status);
     }
 
     uint8_t buf[256];
     while (1) {
         int len = read(STDIN_FILENO, buf, 256);
         buf[len] = 0;
-        printf("in: %s\n", buf);
-        // write(STDOUT_FILENO, &buf, 1);
+        printf("in: %s\r\n", buf);
     }
 }

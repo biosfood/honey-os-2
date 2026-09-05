@@ -31,6 +31,20 @@ void build_starting_stack(ProcessThread *thread, void *start_position,
     mapping->copy_on_write = false;
 
     listAdd(&virtual->mappings, mapping);
+
+    // Pre-allocate additional 15 pages (64KB total) of stack space
+    for (int i = 0; i < 15; i++) {
+        PhysicalMemoryEntry *extra_phys = get_single_page_physical_memory_entry();
+        extra_phys->refcount = 1;
+        void *zeroed = mapTemporaryA(extra_phys->physical);
+        memset(zeroed, 0, 4096);
+        MemoryMapping *extra_mapping = malloc(sizeof(MemoryMapping));
+        extra_mapping->physical = extra_phys;
+        extra_mapping->virtual = ADDRESS(PAGE_ID(virtual->virtual) + 2047 - 15 + i);
+        extra_mapping->copy_on_write = false;
+        listAdd(&virtual->mappings, extra_mapping);
+    }
+
     listAdd(&process->virtual_memory_entries, virtual);
 
     char *stack_ptr = (char *)mapTemporaryA(physical->physical) + 4096;

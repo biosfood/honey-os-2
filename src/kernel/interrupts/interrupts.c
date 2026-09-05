@@ -52,6 +52,34 @@ void onInterrupt(void *cr2, void *cr3, uint32_t edi, uint32_t esi, uint32_t ebp,
 
 void onException(void *cr2, void *cr3, uint32_t edi, uint32_t esi, uint32_t ebp, uint32_t _esp, uint32_t ebx, uint32_t edx, uint32_t ecx, uint32_t eax, uint32_t intNo, uint32_t errorCode,
                  uint32_t eip, uint32_t cs, uint32_t eflags, uint32_t esp) {
+    if (intNo == 0x0E && (errorCode & 1) == 0) {
+        // Page not present: check if it's within a stack VMA
+        VirtualMemoryEntry *stack_vma = NULL;
+        foreach (current_thread->process->virtual_memory_entries, VirtualMemoryEntry *, current_virtual, {
+            if (current_virtual->virtual <= cr2 && current_virtual->virtual + current_virtual->size > cr2) {
+                stack_vma = current_virtual;
+                break;
+            }
+        });
+        if (stack_vma && stack_vma->type == MEM_TYPE_STACK) {
+            uint32_t fault_page = (uint32_t)cr2 & ~0xFFF;
+            PhysicalMemoryEntry *physical = get_single_page_physical_memory_entry();
+            physical->refcount = 1;
+            void *mapped = mapTemporaryA(physical->physical);
+            memset(mapped, 0, 4096);
+            MemoryMapping *mapping = malloc(sizeof(MemoryMapping));
+            mapping->physical = physical;
+            mapping->virtual = PTR(fault_page);
+            mapping->copy_on_write = false;
+            listAdd(&stack_vma->mappings, mapping);
+            PageTableEntry *entry = map(&current_thread->process->memory_information,
+                                        physical->physical, mapping->virtual, true);
+            entry->writable = 1;
+            entry->available = 1;
+            goto resume;
+        }
+    }
+
     if (intNo == 0x0E && errorCode == 7) {
         // page-protection violation, write access and in usermode
         // we are probaly dealing with a copy-on-write page here.

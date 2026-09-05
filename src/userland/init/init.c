@@ -128,6 +128,10 @@ int main() {
     close(STDIN_FILENO);
     open("/dev/tty1/in", O_RDONLY);
 
+    // reassign STDERR to tty1/out
+    close(STDERR_FILENO);
+    open("/dev/tty1/out", O_WRONLY);
+
     // Start serial stack first so console output works
     struct Service pty_svc = { .name = "pty", .path = "/bin/pty" };
     start_supervised_service(&pty_svc);
@@ -181,6 +185,14 @@ int main() {
     } else {
         waitpid(pid, &status, WUNTRACED);
         printf("hello-rust finished: %i\r\n", status);
+    }
+
+    pid = fork();
+    if (!pid) {
+        execv("/bin/xhci", args);
+    } else {
+        waitpid(pid, &status, WUNTRACED);
+        printf("xhci finished: %i\r\n", status);
     }
 
     pid = fork();

@@ -96,12 +96,13 @@ fn main() {
         .open("/dev/port/0xA1")
         .unwrap();
 
-    // Unmask serial (IRQ 4) and PIT (IRQ 0)
-    let d: u8 = !((1 << 4) | (1 << 0));
+    // Unmask serial (IRQ 4), cascade (IRQ 2), and PIT (IRQ 0)
+    let d: u8 = !((1 << 4) | (1 << 2) | (1 << 0));
     data_master.write_all(&[d]).unwrap();
 
-    // Mask all slave IRQs
-    data_slave.write_all(&[0xFF]).unwrap();
+    // Unmask PCI / device IRQs on slave (IRQ 9, 10, 11, 12)
+    let d_slave: u8 = !((1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
+    data_slave.write_all(&[d_slave]).unwrap();
 
     // Set master PIC to read ISR
     control_master.write_all(&[0x0B]).unwrap();

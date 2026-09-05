@@ -8,3 +8,4 @@ initrd
 bochsrc
 .idea
 __pycache__/
+utils

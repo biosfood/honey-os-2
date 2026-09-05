@@ -1,0 +1,7 @@
+[package]
+name = "pit"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+honeyos-pic = { path = "../../libraries/honeyos-pic" }

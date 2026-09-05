@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "libraries/honeyos-pic",
+    "libraries/honeyos-pci",
+    "libraries/honeyos-dma",
+    "libraries/honeyos-usb",
+    "binaries/pic",
+    "binaries/pci",
+    "binaries/pit",
+    "binaries/pty",
+    "binaries/serial",
+    "binaries/xhci",
+]
+resolver = "2"
+
+[profile.release]
+panic = "abort"
+opt-level = 3
+debug = "full"

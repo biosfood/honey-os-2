@@ -1,0 +1,10 @@
+[package]
+name = "xhci"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+honeyos-pic = { path = "../../libraries/honeyos-pic" }
+honeyos-pci = { path = "../../libraries/honeyos-pci" }
+honeyos-dma = { path = "../../libraries/honeyos-dma" }
+honeyos-usb = { path = "../../libraries/honeyos-usb" }

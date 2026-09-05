@@ -45,15 +45,15 @@ void *supervisor_worker(void *arg) {
                     int len = snprintf(log_buf, sizeof(log_buf), "[%-8s]: %s\r\n", svc->name, line);
                     write(STDOUT_FILENO, log_buf, len);
                 }
+                if (!notified && strcmp(line, "ready") == 0) {
+                    notified = 1;
+                    char b = 1;
+                    write(svc->ready_pipe_write, &b, 1);
+                }
                 line_len = 0;
             } else if (buf[i] != '\r' && line_len < (int)sizeof(line) - 1) {
                 line[line_len++] = buf[i];
             }
-        }
-        if (!notified) {
-            notified = 1;
-            char b = 1;
-            write(svc->ready_pipe_write, &b, 1);
         }
     }
     if (line_len > 0) {
@@ -66,6 +66,13 @@ void *supervisor_worker(void *arg) {
     }
     close(svc->stdout_pipe_read);
     close(svc->ready_pipe_write);
+    int dummy_pipe[2];
+    if (pipe(dummy_pipe) == 0) {
+        char dummy;
+        while (1) {
+            read(dummy_pipe[0], &dummy, 1);
+        }
+    }
     return NULL;
 }
 
@@ -148,59 +155,46 @@ int main() {
     struct Service pit_svc = { .name = "pit", .path = "/bin/pit" };
     start_supervised_service(&pit_svc);
 
-    printf("Hello World!\r\n");
-    fflush(stdout);
+    struct Service pci_svc = { .name = "pci", .path = "/bin/pci" };
+    start_supervised_service(&pci_svc);
+
+    struct Service xhci_svc = { .name = "xhci", .path = "/bin/xhci" };
+    start_supervised_service(&xhci_svc);
 
     char *args[] = { NULL };
     int status;
     pid_t pid;
 
-    pid = fork();
-    if (!pid) {
-        execv("/bin/index-pci", args);
-    } else {
-        waitpid(pid, &status, WUNTRACED);
-        printf("index pci finished: %i\r\n", status);
-    }
-
+    /*
     pid = fork();
     if (!pid) {
         execv("/bin/test-mmio", args);
+        exit(1);
     } else {
         waitpid(pid, &status, WUNTRACED);
         printf("test-mmio finished: %i\r\n", status);
+        fflush(stdout);
     }
 
     pid = fork();
     if (!pid) {
         execv("/bin/test-dma", args);
+        exit(1);
     } else {
         waitpid(pid, &status, WUNTRACED);
         printf("test-dma finished: %i\r\n", status);
+        fflush(stdout);
     }
-
-    pid = fork();
-    if (!pid) {
-        execv("/bin/hello-rust", args);
-    } else {
-        waitpid(pid, &status, WUNTRACED);
-        printf("hello-rust finished: %i\r\n", status);
-    }
-
-    pid = fork();
-    if (!pid) {
-        execv("/bin/xhci", args);
-    } else {
-        waitpid(pid, &status, WUNTRACED);
-        printf("xhci finished: %i\r\n", status);
-    }
+    */
 
     pid = fork();
     if (!pid) {
         execv("/bin/sh", args);
+        exit(1);
     } else {
         waitpid(pid, &status, WUNTRACED);
         printf("sh finished: %i\r\n", status);
+        fflush(stdout);
     }
 
     uint8_t buf[256];

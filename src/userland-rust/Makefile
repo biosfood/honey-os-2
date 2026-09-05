@@ -3,8 +3,8 @@ CARGO_CMD = $(CARGO) +nightly
 CC = $(abspath ../../build/musl/bin/musl-gcc)
 LD_FLAGS = -m32 -z max-page-size=0x1000
 
-PROGRAM_NAMES := $(shell ls -d */ | sed "s/\/$$//" | sed "s|build||")
-PROGRAMS := $(PROGRAM_NAMES:%=../../initrd/bin/%)
+BINARIES := pic pci pit pty serial xhci
+PROGRAMS := $(BINARIES:%=../../initrd/bin/%)
 MUSL_LIB_DIR = $(abspath ../../build/musl/lib)
 GCC_LIB_DIR := $(dir $(shell $(CC) -print-libgcc-file-name))
 
@@ -26,9 +26,7 @@ default: all
 all: $(MUSL_LIB_DIR)/libunwind.a $(PROGRAMS)
 
 clean:
-	@for dir in $(PROGRAM_NAMES); do \
-		(cd $$dir && $(CARGO) clean); \
-	done
+	@$(CARGO) clean
 
 $(MUSL_LIB_DIR)/libunwind.a:
 	@echo "Creating dummy libunwind.a with stubbed symbols to satisfy Rust backtraces..."
@@ -46,20 +44,20 @@ $(MUSL_LIB_DIR)/libunwind.a:
 	@ar rcs $@ /tmp/dummy_unwind.o
 	@rm /tmp/dummy_unwind.c /tmp/dummy_unwind.o
 
-FORCE: ;
-
-define MAKE_RUST_PROGRAM
-../../initrd/bin/$(1): FORCE
-	@echo "Compiling and linking rust program $(1) via Cargo"
-	@cd $(1) && $$(CARGO_CMD) build \
+build-workspace: $(MUSL_LIB_DIR)/libunwind.a
+	@echo "Compiling and linking all rust crates via Cargo workspace"
+	@$(CARGO_CMD) build \
 		-Z build-std=std,panic_abort \
 		--target i686-unknown-linux-musl \
 		--release
+
+define COPY_PROGRAM
+../../initrd/bin/$(1): build-workspace
 	@echo "Copying rust program $(1) to initrd"
 	@mkdir -p $$(dir $$@)
-	@cp $(1)/target/i686-unknown-linux-musl/release/$(1) ../../initrd/bin/$(1)
+	@cp target/i686-unknown-linux-musl/release/$(1) ../../initrd/bin/$(1)
 endef
 
-$(foreach NAME, $(PROGRAM_NAMES), $(eval $(call MAKE_RUST_PROGRAM,$(NAME))))
+$(foreach NAME, $(BINARIES), $(eval $(call COPY_PROGRAM,$(NAME))))
 
-.PHONY: all clean default
+.PHONY: all clean default build-workspace

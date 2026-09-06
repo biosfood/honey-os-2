@@ -162,9 +162,6 @@ int main() {
     struct Service pci_svc = { .name = "pci", .path = "/bin/pci" };
     start_supervised_service(&pci_svc);
 
-    struct Service xhci_svc = { .name = "xhci", .path = "/bin/xhci" };
-    start_supervised_service(&xhci_svc);
-
     char *args[] = { NULL };
     int status;
     pid_t pid;

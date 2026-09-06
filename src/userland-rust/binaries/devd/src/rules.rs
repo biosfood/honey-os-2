@@ -288,7 +288,6 @@ pub fn split_command(cmd: &str) -> Vec<String> {
     args
 }
 
-/// Ingests `/etc/devd.rules` if it exists and always includes built-in fallback rules.
 pub fn load_rules() -> Vec<Rule> {
     let mut rules = Vec::new();
 
@@ -299,21 +298,10 @@ pub fn load_rules() -> Vec<Rule> {
                 rules.push(rule);
             }
         }
+        println!("loaded {} rules from /etc/devd.rules", rules.len());
+    } else {
+        println!("Could not read /etc/devd.rules");
     }
-
-    // 2. Built-in fallback rules
-    let fallback_rules = [
-        r#"ACTION=="add", SUBSYSTEM=="usb", ENV{TYPE}=="3/*", RUN+="/bin/hid $env{DEVPATH}""#,
-        r#"ACTION=="add", SUBSYSTEM=="usb", ENV{IFACE0_CLASS}=="3", RUN+="/bin/hid $env{DEVPATH}""#,
-        r#"ACTION=="add", SUBSYSTEM=="usb", ENV{DEVNAME}=="*", RUN+="""#,
-    ];
-
-    for line in fallback_rules {
-        if let Some(rule) = parse_rule_line(line) {
-            rules.push(rule);
-        }
-    }
-
     rules
 }
 

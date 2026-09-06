@@ -124,6 +124,7 @@ fn handle_event(
     };
 
     println!("Event: ACTION={} DEVPATH={}", action, devpath);
+    println!("{:?}", event);
 
     if action == "add" {
         for rule in rules {

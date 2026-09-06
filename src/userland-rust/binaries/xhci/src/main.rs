@@ -5,9 +5,10 @@ mod registers;
 mod ring;
 mod xhci;
 
-use honeyos_pci::PciScanner;
+use honeyos_pci::PciDevice;
 use std::fs::OpenOptions;
 use std::io::Read;
+use std::process::exit;
 use xhci::XhciController;
 
 extern "C" {
@@ -16,14 +17,10 @@ extern "C" {
 }
 
 fn main() {
-    println!("Starting xHCI USB Driver (Rust)...");
+    let args: Vec<String> = std::env::args().collect();
+    // TODO check argc
 
-    unsafe {
-        mkdir(b"/dev\0".as_ptr(), 0);
-        mkdir(b"/dev/usb\0".as_ptr(), 0);
-    }
-
-    let pci_dev = match PciScanner::find_xhci() {
+    let pci_dev = match PciDevice::from_path(&args[1]) {
         Ok(dev) => dev,
         Err(e) => {
             println!("Error locating xHCI controller via /dev/pci: {}", e);
@@ -31,8 +28,15 @@ fn main() {
         }
     };
 
+    // TODO: allocate a good device number
+    unsafe {
+        mkdir(b"/dev\0".as_ptr(), 0);
+        mkdir(b"/dev/usb\0".as_ptr(), 0);
+    }
+
+
     println!(
-        "Found xHCI controller at PCI {}:{}.{} (Vendor: 0x{:04x}, Device: 0x{:04x}, IRQ: {})",
+        "Registering a xHCI controller at PCI {}:{}.{} (Vendor: 0x{:04x}, Device: 0x{:04x}, IRQ: {})",
         pci_dev.bus, pci_dev.device, pci_dev.function, pci_dev.vendor_id, pci_dev.device_id, pci_dev.irq
     );
 

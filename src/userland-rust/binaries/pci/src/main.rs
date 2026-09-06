@@ -186,8 +186,6 @@ fn scan_function(ports: &mut PciConfigPorts, bus: u8, device: u8, function: u8, 
                             symlink(target.as_ptr(), linkpath.as_ptr());
                         }
                         println!("  bar {} -> /kernel/mem/0x{:x}+0x{:x}", i, phys_base, size);
-                        let dev_dir_str = &dev_dir[..dev_dir.len() - 1];
-                        write_file(dev_dir_str, &format!("bar{}", i), &format!("0x{:x}+0x{:x}", phys_base, size));
                     }
                 }
             }
@@ -216,11 +214,10 @@ fn scan_function(ports: &mut PciConfigPorts, bus: u8, device: u8, function: u8, 
     let mut uevent = Vec::new();
     uevent.extend_from_slice(b"ACTION=add\0");
     uevent.extend_from_slice(format!("DEVPATH=/devices/pci/{:02x}:{:02x}.{}\0", bus, device, function).as_bytes());
+    uevent.extend_from_slice(format!("DEVNAME={}\0", dev_dir_str).as_bytes());
     uevent.extend_from_slice(b"SUBSYSTEM=pci\0");
     uevent.extend_from_slice(format!("PCI_ID={:04x}:{:04x}\0", vendor_id, device_id).as_bytes());
     uevent.extend_from_slice(format!("PCI_CLASS={:02x}:{:02x}:{:02x}\0", class, subclass, prog_if).as_bytes());
-    uevent.extend_from_slice(format!("BAR0={:x}+{:x}\0", bar0_base, bar0_size).as_bytes());
-    uevent.extend_from_slice(format!("IRQ={}\0", irq).as_bytes());
     uevent.push(0);
     emit_uevent(&uevent);
 
@@ -314,11 +311,10 @@ mod tests {
         let mut uevent = Vec::new();
         uevent.extend_from_slice(b"ACTION=add\0");
         uevent.extend_from_slice(format!("DEVPATH=/devices/pci/{:02x}:{:02x}.{}\0", bus, device, function).as_bytes());
+        uevent.extend_from_slice(format!("DEVNAME=/dev/pci/{:02x}:{:02x}.{}\0", bus, device, function).as_bytes());
         uevent.extend_from_slice(b"SUBSYSTEM=pci\0");
         uevent.extend_from_slice(format!("PCI_ID={:04x}:{:04x}\0", vendor_id, device_id).as_bytes());
         uevent.extend_from_slice(format!("PCI_CLASS={:02x}:{:02x}:{:02x}\0", class, subclass, prog_if).as_bytes());
-        uevent.extend_from_slice(format!("BAR0={:x}+{:x}\0", bar0_base, bar0_size).as_bytes());
-        uevent.extend_from_slice(format!("IRQ={}\0", irq).as_bytes());
         uevent.push(0);
 
         assert_eq!(&uevent[uevent.len() - 2..], b"\0\0");
@@ -330,7 +326,5 @@ mod tests {
         assert_eq!(parts[2], "SUBSYSTEM=pci");
         assert_eq!(parts[3], "PCI_ID=1b36:000d");
         assert_eq!(parts[4], "PCI_CLASS=0c:03:30");
-        assert_eq!(parts[5], "BAR0=febf0000+10000");
-        assert_eq!(parts[6], "IRQ=11");
     }
 }

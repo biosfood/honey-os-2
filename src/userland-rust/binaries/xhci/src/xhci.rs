@@ -72,8 +72,12 @@ pub struct XhciController {
 
 impl XhciController {
     pub fn new(pci_dev: PciDevice) -> Result<Self, String> {
-        println!("Mapping MMIO BAR0: 0x{:x} (size: 0x{:x})", pci_dev.bar0, pci_dev.bar0_size);
-        let regs = XhciRegisters::map(pci_dev.bar0, pci_dev.bar0_size)?;
+        if pci_dev.bars.is_empty() {
+            return Err("Pci device has no BAR".parse().unwrap());
+        }
+        let bar = pci_dev.bars.first().unwrap();
+        println!("Mapping MMIO BAR0: 0x{:x} (size: 0x{:x})", bar.phys_base, bar.size);
+        let regs = XhciRegisters::map(bar.phys_base, bar.size)?;
 
         let cap_len = regs.cap_length();
         let hci_ver = regs.hci_version();

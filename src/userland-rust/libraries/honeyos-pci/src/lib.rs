@@ -1,4 +1,4 @@
-use std::fs::OpenOptions;
+use std::fs::{read_link, OpenOptions};
 use std::io::{self, Write};
 
 extern "C" {
@@ -9,7 +9,8 @@ extern "C" {
 
 /// Read a symbolic link target using HoneyOS O_SYMLINK (0x1000)
 pub fn read_symlink(path: &str) -> io::Result<String> {
-    let cpath = std::ffi::CString::new(path).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+    let cpath =
+        std::ffi::CString::new(path).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
     const O_RDONLY: i32 = 0;
     const O_SYMLINK: i32 = 0x1000;
     let fd = unsafe { open(cpath.as_ptr() as *const u8, O_RDONLY | O_SYMLINK) };
@@ -22,7 +23,9 @@ pub fn read_symlink(path: &str) -> io::Result<String> {
     if n < 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok(String::from_utf8_lossy(&buf[..n as usize]).trim().to_string())
+    Ok(String::from_utf8_lossy(&buf[..n as usize])
+        .trim()
+        .to_string())
 }
 
 #[derive(Debug, Clone)]
@@ -46,16 +49,106 @@ pub struct PciDevice {
     pub prog_if: u8,
     pub class_name: String,
     pub irq: u8,
-    pub bar0: u32,
-    pub bar0_size: u32,
     pub bars: Vec<PciBar>,
+}
+
+impl PciDevice {
+    pub fn from_path(dev_dir: &String) -> Result<PciDevice, &str> {
+        let name = dev_dir.split('/').last().unwrap();
+        let parts: Vec<&str> = name.split(|c| c == ':' || c == '.').collect();
+        if parts.len() != 3 {
+            return Err("Bad path parts");
+        }
+
+        let bus: u8 = match parts[0].parse() {
+            Ok(b) => b,
+            Err(_) => return Err("Bad bus"),
+        };
+        let device: u8 = match parts[1].parse() {
+            Ok(d) => d,
+            Err(_) => return Err("bad device"),
+        };
+        let function: u8 = match parts[2].parse() {
+            Ok(f) => f,
+            Err(_) => return Err("bad function"),
+        };
+
+        let read_u32 = |sub: &str| -> u32 {
+            read_small_file(&format!("{}/{}", dev_dir, sub))
+                .ok()
+                .and_then(|s| {
+                    let trimmed = s.trim();
+                    if trimmed.starts_with("0x") || trimmed.starts_with("0X") {
+                        u32::from_str_radix(&trimmed[2..], 16).ok()
+                    } else {
+                        trimmed.parse().ok()
+                    }
+                })
+                .unwrap_or(0)
+        };
+
+        let read_str = |sub: &str| -> String {
+            read_small_file(&format!("{}/{}", dev_dir, sub)).unwrap_or_default()
+        };
+
+        let vendor_id = read_u32("vendor") as u16;
+        let device_id = read_u32("device") as u16;
+        let class = read_u32("class") as u8;
+        let subclass = read_u32("subclass") as u8;
+        let prog_if = read_u32("programming_interface") as u8;
+        let class_name = read_str("class_name");
+        let irq = read_u32("irq") as u8;
+
+        let mut bars = Vec::new();
+
+        for bar_idx in 0..6 {
+            let mut phys_base = 0u32;
+            let mut size = 0u32;
+            let mut target_str = String::new();
+
+            let bar_link_path = format!("{}/bar/{}", dev_dir, bar_idx);
+            if let Ok(target) = read_symlink(&bar_link_path) {
+                if let Some(mem_part) = target.strip_prefix("/kernel/mem/") {
+                    let splits: Vec<&str> = mem_part.split('+').collect();
+                    if splits.len() == 2 {
+                        let p_str = splits[0].trim_start_matches("0x").trim_start_matches("0X");
+                        let s_str = splits[1].trim_start_matches("0x").trim_start_matches("0X");
+                        phys_base = u32::from_str_radix(p_str, 16).unwrap_or(0);
+                        size = u32::from_str_radix(s_str, 16).unwrap_or(0);
+                        target_str = target;
+                        bars.push(PciBar {
+                            index: bar_idx,
+                            phys_base,
+                            size,
+                            symlink_path: bar_link_path,
+                            target_mem_path: target_str,
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok(PciDevice {
+            bus,
+            device,
+            function,
+            vendor_id,
+            device_id,
+            class,
+            subclass,
+            prog_if,
+            class_name,
+            irq,
+            bars,
+        })
+    }
 }
 
 impl PciDevice {
     /// Enable PCI Bus Mastering and Memory Space on this device
     pub fn enable_bus_mastering(&self) -> io::Result<()> {
         let dev_id = format!("{}:{}.{}", self.bus, self.device, self.function);
-        
+
         // Try writing "1" to device-specific bus_master file if present
         let dev_bm_path = format!("/dev/pci/{}/bus_master", dev_id);
         if let Ok(mut f) = OpenOptions::new().write(true).open(&dev_bm_path) {
@@ -76,13 +169,11 @@ impl PciDevice {
         if let (Ok(mut addr_f), Ok(mut data_f)) = (
             OpenOptions::new()
                 .write(true)
-                .open("/dev/port/3320")
-                .or_else(|_| OpenOptions::new().write(true).open("/dev/port/0xCF8")),
+                .open("/dev/port/0xCF8"),
             OpenOptions::new()
                 .read(true)
                 .write(true)
-                .open("/dev/port/3324")
-                .or_else(|_| OpenOptions::new().read(true).write(true).open("/dev/port/0xCFC")),
+                .open("/dev/port/0xCFC")
         ) {
             use std::io::Read;
             let address: u32 = 0x8000_0000
@@ -102,7 +193,10 @@ impl PciDevice {
             }
         }
 
-        Err(io::Error::new(io::ErrorKind::NotFound, "Could not open PCI control interface"))
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Could not open PCI control interface",
+        ))
     }
 }
 
@@ -150,141 +244,13 @@ impl PciScanner {
 
         for name in dev_names {
             // Expected format: <bus>:<device>.<function>
-            let parts: Vec<&str> = name.split(|c| c == ':' || c == '.').collect();
-            if parts.len() != 3 {
-                continue;
+            let path = format!("/dev/pci/{}", name);
+            let device = PciDevice::from_path(&path);
+            if device.is_ok() {
+                devices.push(device.unwrap());
             }
-
-            let bus: u8 = match parts[0].parse() {
-                Ok(b) => b,
-                Err(_) => continue,
-            };
-            let device: u8 = match parts[1].parse() {
-                Ok(d) => d,
-                Err(_) => continue,
-            };
-            let function: u8 = match parts[2].parse() {
-                Ok(f) => f,
-                Err(_) => continue,
-            };
-
-            let dev_dir = format!("/dev/pci/{}", name);
-
-            let read_u32 = |sub: &str| -> u32 {
-                read_small_file(&format!("{}/{}", dev_dir, sub))
-                    .ok()
-                    .and_then(|s| {
-                        let trimmed = s.trim();
-                        if trimmed.starts_with("0x") || trimmed.starts_with("0X") {
-                            u32::from_str_radix(&trimmed[2..], 16).ok()
-                        } else {
-                            trimmed.parse().ok()
-                        }
-                    })
-                    .unwrap_or(0)
-            };
-
-            let read_str = |sub: &str| -> String {
-                read_small_file(&format!("{}/{}", dev_dir, sub)).unwrap_or_default()
-            };
-
-            let vendor_id = read_u32("vendor") as u16;
-            let device_id = read_u32("device") as u16;
-            let class = read_u32("class") as u8;
-            let subclass = read_u32("subclass") as u8;
-            let prog_if = read_u32("programming_interface") as u8;
-            let class_name = read_str("class_name");
-            let irq = read_u32("irq") as u8;
-
-            let mut bars = Vec::new();
-            let mut bar0 = 0u32;
-            let mut bar0_size = 0u32;
-
-            for bar_idx in 0..6 {
-                let mut phys_base = 0u32;
-                let mut size = 0u32;
-                let mut target_str = String::new();
-
-                // 1. Try reading direct bar file
-                let bar_file = format!("{}/bar{}", dev_dir, bar_idx);
-                if let Ok(content) = read_small_file(&bar_file) {
-                    let splits: Vec<&str> = content.split('+').collect();
-                    if splits.len() == 2 {
-                        let p_str = splits[0].trim_start_matches("0x").trim_start_matches("0X");
-                        let s_str = splits[1].trim_start_matches("0x").trim_start_matches("0X");
-                        phys_base = u32::from_str_radix(p_str, 16).unwrap_or(0);
-                        size = u32::from_str_radix(s_str, 16).unwrap_or(0);
-                        target_str = format!("/kernel/mem/{}", content);
-                    }
-                }
-
-                // 2. Try reading symlink
-                let bar_link_path = format!("{}/bar/{}", dev_dir, bar_idx);
-                if phys_base == 0 || size == 0 {
-                    if let Ok(target) = read_symlink(&bar_link_path) {
-                        if let Some(mem_part) = target.strip_prefix("/kernel/mem/") {
-                            let splits: Vec<&str> = mem_part.split('+').collect();
-                            if splits.len() == 2 {
-                                let p_str = splits[0].trim_start_matches("0x").trim_start_matches("0X");
-                                let s_str = splits[1].trim_start_matches("0x").trim_start_matches("0X");
-                                phys_base = u32::from_str_radix(p_str, 16).unwrap_or(0);
-                                size = u32::from_str_radix(s_str, 16).unwrap_or(0);
-                                target_str = target;
-                            }
-                        }
-                    }
-                }
-
-                if phys_base > 0 && size > 0 {
-                    if bar_idx == 0 {
-                        bar0 = phys_base;
-                        bar0_size = size;
-                    }
-                    bars.push(PciBar {
-                        index: bar_idx,
-                        phys_base,
-                        size,
-                        symlink_path: bar_link_path,
-                        target_mem_path: target_str,
-                    });
-                }
-            }
-
-            devices.push(PciDevice {
-                bus,
-                device,
-                function,
-                vendor_id,
-                device_id,
-                class,
-                subclass,
-                prog_if,
-                class_name,
-                irq,
-                bar0,
-                bar0_size,
-                bars,
-            });
         }
 
         Ok(devices)
-    }
-
-    /// Find an xHCI host controller device (Class 0x0C, Subclass 0x03, ProgIF 0x30)
-    pub fn find_xhci() -> io::Result<PciDevice> {
-        let devices = Self::scan()?;
-        for dev in &devices {
-            if dev.class == 0x0C && dev.subclass == 0x03 && dev.prog_if == 0x30 {
-                return Ok(dev.clone());
-            }
-        }
-        let summary: Vec<String> = devices
-            .iter()
-            .map(|d| format!("{}:{}.{} (c=0x{:02x}, s=0x{:02x}, p=0x{:02x}, bar0=0x{:x})", d.bus, d.device, d.function, d.class, d.subclass, d.prog_if, d.bar0))
-            .collect();
-        Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            format!("No xHCI host controller found on PCI bus. Scanned {} devices: [{}]", devices.len(), summary.join("; ")),
-        ))
     }
 }

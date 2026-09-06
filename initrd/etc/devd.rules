@@ -1,0 +1,4 @@
+ACTION=="add", SUBSYSTEM=="usb", ENV{TYPE}=="3/*", RUN+="/bin/hid $env{DEVPATH}"
+ACTION=="add", SUBSYSTEM=="usb", ENV{IFACE0_CLASS}=="3", RUN+="/bin/hid $env{DEVPATH}"
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVNAME}=="*", RUN+=""
+ACTION=="add", SUBSYSTEM=="pci", ENV{PCI_CLASS}=="0c:03:30", RUN+="/bin/xhci $env{DEVNAME}"

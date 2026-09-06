@@ -4,7 +4,7 @@ rootfs/bin
 rootfs/initrd.tar
 .vscode
 *.log
-initrd
+initrd/bin
 bochsrc
 .idea
 __pycache__/

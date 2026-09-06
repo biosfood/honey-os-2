@@ -14,13 +14,12 @@ interruptReturn:
   ret
 
 exceptionAbort:
-  mov ebx, [esp+24]
-  cmp ecx, 0x500000
-  ; kernel fault, nothing to do, as everything has failed (for now)
-  je $
   mov ecx, 0x500000
   mov cr3, ecx
   call onException
+  cmp dword [esp+4], 0x500000
+  ; kernel fault, nothing to do, as everything has failed (for now)
+  je $
   mov eax, [temporaryESP]
   mov esp, eax
   pop ebp
@@ -41,8 +40,11 @@ handleInterrupt:
   mov eax, 0x500000
   mov cr3, eax
   call onInterrupt
-  add esp, 16
+  add esp, 4
+  pop eax
+  mov cr3, eax
   popa
+  add esp, 8
   iret
 
 %macro interruptHandler 1

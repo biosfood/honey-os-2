@@ -42,7 +42,8 @@ Container *newContainer(FileSystem *fs) {
     uint32_t bytes_read;
     init_file->file_system->type->read(init_file, file_data, s.st_size, 0, NULL,
                                        NULL, &bytes_read);
-    processLoadELF(init_process, file_data);
+    char *init_argv[] = {"/bin/init"};
+    processLoadELF(init_process, file_data, 1, init_argv, 0, NULL);
     free(file_data);
 
     File *nulldev;

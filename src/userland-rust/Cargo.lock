@@ -3,7 +3,22 @@
 version = 4
 
 [[package]]
+name = "devd"
+version = "0.1.0"
+
+[[package]]
+name = "hid"
+version = "0.1.0"
+dependencies = [
+ "honeyos-hid",
+]
+
+[[package]]
 name = "honeyos-dma"
+version = "0.1.0"
+
+[[package]]
+name = "honeyos-hid"
 version = "0.1.0"
 
 [[package]]

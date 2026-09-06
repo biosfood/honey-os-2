@@ -27,8 +27,9 @@ build:
 	@mkdir build/musl
 
 initrd:
-	@mkdir initrd
-	@mkdir initrd/bin
+	@mkdir -p initrd/bin initrd/etc
+	@cp etc/devd.rules initrd/etc/devd.rules
+
 
 $(IMAGE_FILE): rootfs/boot/kernel rootfs/initrd.tar
 	@echo "creating the iso image"

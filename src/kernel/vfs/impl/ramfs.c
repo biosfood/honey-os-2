@@ -98,12 +98,20 @@ void ramfs_write(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
         }
         return;
     }
-    // just completely overwrites the file for now...
-    if (file->data) {
-        free(file->data);
+    if (offset + size > file->size) {
+        void *new_data = malloc(offset + size);
+        if (file->data) {
+            if (offset > 0) {
+                memcpy(file->data, new_data, MIN(file->size, offset));
+            }
+            if (offset > file->size) {
+                memset(new_data + file->size, 0, offset - file->size);
+            }
+            free(file->data);
+        }
+        file->data = new_data;
+        file->size = offset + size;
     }
-    file->data = malloc(size + offset);
-    file->size = size + offset;
     memcpy(data, file->data + offset, size);
     *bytes_written = size;
     if (thread) {
@@ -124,6 +132,7 @@ void fill_dirent(FillDirData *buf, char *name, int file_type) {
     dirent->d_ino =
         U32(name); // just needs to be unique, and in ramfs, the address of the
                    // filename is unique for each file...
+    dirent->d_off = buf->current_offset + entry_size;
     memcpy(name, dirent->d_name, strlen(name) + 1);
     dirent->d_reclen = entry_size;
     dirent->d_type = file_type;
@@ -148,7 +157,7 @@ void ramfs_read(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
         if (!bytes_to_read) {
             *bytes_read = 0;
         } else {
-            memcpy(file->data + offset, data, size);
+            memcpy(file->data + offset, data, bytes_to_read);
             *bytes_read = bytes_to_read;
         }
         if (thread) {
@@ -162,7 +171,7 @@ void ramfs_read(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
                            .current_offset = 0,
                            .bytes_written = 0};
         foreach (file->data, RamFsFile *, child,
-                 { fill_dirent(&buf, child->name, file->type); })
+                 { fill_dirent(&buf, child->name, child->type); })
             ;
         *bytes_read = buf.bytes_written;
         if (thread) {
@@ -175,16 +184,29 @@ void ramfs_read(RamFsFile *file, void *data, uint32_t size, uint32_t offset,
 }
 
 uint32_t ramFsGetattr(RamFsFile *file, struct stat *buf) {
+    memset(buf, 0, sizeof(struct stat));
     if (file->type == FILE_TYPE_DIRECTORY) {
         uint32_t size = 0;
         foreach (file->data, RamFsFile *, child,
                  { size += sizeof(struct posix_dent) + strlen(child->name) + 1; })
             ;
         buf->st_size = size;
+        buf->st_mode = S_IFDIR | 0755;
+    } else if (file->type == FILE_TYPE_FIFO) {
+        buf->st_size = 0;
+        buf->st_mode = S_IFIFO | 0666;
+    } else if (file->type == FILE_TYPE_SYMLINK) {
+        buf->st_size = file->size;
+        buf->st_mode = S_IFLNK | 0777;
     } else {
         buf->st_size = file->size;
+        buf->st_mode = S_IFREG | 0644;
     }
-    buf->st_ino = U32(file->data);
+    buf->st_ino = U32(file->data ? file->data : file);
+    buf->st_nlink = 1;
+    buf->st_blksize = 4096;
+    buf->st_blocks = (buf->st_size + 511) / 512;
+    return 0;
 }
 
 FileSystemType ramfsType = {

@@ -115,6 +115,13 @@ fn write_file(dir: &str, name: &str, content: &str) {
     }
 }
 
+fn emit_uevent(datagram: &[u8]) {
+    if let Ok(mut f) = OpenOptions::new().write(true).open("/dev/uevent") {
+        let _ = f.write_all(datagram);
+        let _ = f.flush();
+    }
+}
+
 fn scan_function(ports: &mut PciConfigPorts, bus: u8, device: u8, function: u8, dev_list: &mut Vec<String>) {
     let vendor_id = ports.read16(bus, device, function, 0x00);
     if vendor_id == 0xFFFF || vendor_id == 0 {
@@ -147,6 +154,9 @@ fn scan_function(ports: &mut PciConfigPorts, bus: u8, device: u8, function: u8, 
 
     println!("{}:{}.{}: class {} ({})", bus, device, function, class, class_name);
 
+    let mut bar0_base = 0u32;
+    let mut bar0_size = 0u32;
+
     // Size and expose BARs
     let mut i = 0;
     while i < 6 {
@@ -166,6 +176,10 @@ fn scan_function(ports: &mut PciConfigPorts, bus: u8, device: u8, function: u8, 
                     let size = !(mask & 0xFFFF_FFF0) + 1;
                     let phys_base = orig & 0xFFFF_FFF0;
                     if size > 0 && phys_base > 0 {
+                        if i == 0 {
+                            bar0_base = phys_base;
+                            bar0_size = size;
+                        }
                         let target = format!("/kernel/mem/0x{:x}+0x{:x}\0", phys_base, size);
                         let linkpath = format!("/dev/pci/{}:{}.{}/bar/{}\0", bus, device, function, i);
                         unsafe {
@@ -198,6 +212,17 @@ fn scan_function(ports: &mut PciConfigPorts, bus: u8, device: u8, function: u8, 
     write_file(dev_dir_str, "programming_interface", &format!("{}", prog_if));
     write_file(dev_dir_str, "irq", &format!("{}", irq));
     write_file(dev_dir_str, "bus_master", "1");
+
+    let mut uevent = Vec::new();
+    uevent.extend_from_slice(b"ACTION=add\0");
+    uevent.extend_from_slice(format!("DEVPATH=/devices/pci/{:02x}:{:02x}.{}\0", bus, device, function).as_bytes());
+    uevent.extend_from_slice(b"SUBSYSTEM=pci\0");
+    uevent.extend_from_slice(format!("PCI_ID={:04x}:{:04x}\0", vendor_id, device_id).as_bytes());
+    uevent.extend_from_slice(format!("PCI_CLASS={:02x}:{:02x}:{:02x}\0", class, subclass, prog_if).as_bytes());
+    uevent.extend_from_slice(format!("BAR0={:x}+{:x}\0", bar0_base, bar0_size).as_bytes());
+    uevent.extend_from_slice(format!("IRQ={}\0", irq).as_bytes());
+    uevent.push(0);
+    emit_uevent(&uevent);
 
     dev_list.push(format!("{}:{}.{}", bus, device, function));
 }
@@ -267,5 +292,45 @@ fn main() {
             println!("Rescanning PCI bus...");
             scan_all(&mut ports);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_pci_uevent_format() {
+        let bus = 0u8;
+        let device = 4u8;
+        let function = 0u8;
+        let vendor_id = 0x1b36u16;
+        let device_id = 0x000du16;
+        let class = 0x0cu8;
+        let subclass = 0x03u8;
+        let prog_if = 0x30u8;
+        let bar0_base = 0xfebf0000u32;
+        let bar0_size = 0x10000u32;
+        let irq = 11u8;
+
+        let mut uevent = Vec::new();
+        uevent.extend_from_slice(b"ACTION=add\0");
+        uevent.extend_from_slice(format!("DEVPATH=/devices/pci/{:02x}:{:02x}.{}\0", bus, device, function).as_bytes());
+        uevent.extend_from_slice(b"SUBSYSTEM=pci\0");
+        uevent.extend_from_slice(format!("PCI_ID={:04x}:{:04x}\0", vendor_id, device_id).as_bytes());
+        uevent.extend_from_slice(format!("PCI_CLASS={:02x}:{:02x}:{:02x}\0", class, subclass, prog_if).as_bytes());
+        uevent.extend_from_slice(format!("BAR0={:x}+{:x}\0", bar0_base, bar0_size).as_bytes());
+        uevent.extend_from_slice(format!("IRQ={}\0", irq).as_bytes());
+        uevent.push(0);
+
+        assert_eq!(&uevent[uevent.len() - 2..], b"\0\0");
+
+        let s = std::str::from_utf8(&uevent[..uevent.len() - 2]).unwrap();
+        let parts: Vec<&str> = s.split('\0').collect();
+        assert_eq!(parts[0], "ACTION=add");
+        assert_eq!(parts[1], "DEVPATH=/devices/pci/00:04.0");
+        assert_eq!(parts[2], "SUBSYSTEM=pci");
+        assert_eq!(parts[3], "PCI_ID=1b36:000d");
+        assert_eq!(parts[4], "PCI_CLASS=0c:03:30");
+        assert_eq!(parts[5], "BAR0=febf0000+10000");
+        assert_eq!(parts[6], "IRQ=11");
     }
 }

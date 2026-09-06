@@ -92,6 +92,7 @@ void handleStatSyscall(ProcessThread *thread) {
         return;
     }
     struct stat buf;
+    memset(&buf, 0, sizeof(struct stat));
     file_descriptor->file->file_system->type->getattr(file_descriptor->file,
                                                       &buf, thread);
     copy_from_kernel_to_process(

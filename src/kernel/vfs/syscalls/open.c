@@ -36,13 +36,14 @@ void handleOpenSyscall(ProcessThread *thread) {
                 thread->process->container->vfs, state->filename, thread,
                 &state->file, &state->scratchpad, thread->parameters[1]);
         if (status != FILE_OPERATION_DONE) {
+            state->stage = OPEN_POST;
             break;
         }
         state->stage = OPEN_POST;
-        // fallthrough
-    case OPEN_POST:
+    case OPEN_POST: {
+        uint8_t mode = thread->parameters[1] & 0x03;
         if (state->file == NULL ||
-            (state->file->type == FILE_TYPE_DIRECTORY && !(thread->parameters[1] & O_SEARCH))) {
+            (state->file->type == FILE_TYPE_DIRECTORY && (mode == O_WRONLY || mode == O_RDWR))) {
             free(state->filename);
             thread->returnValue = -1;
         } else {
@@ -61,5 +62,6 @@ void handleOpenSyscall(ProcessThread *thread) {
         }
         thread->run = true;
         listAdd(&threads_to_process, thread);
+    }
     }
 }

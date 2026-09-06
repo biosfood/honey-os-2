@@ -3,7 +3,7 @@ use crate::registers::XhciRegisters;
 use crate::ring::{
     EventRing, Trb, TrbRing, TRB_ADDRESS_DEVICE, TRB_COMMAND_COMPLETION_EVENT,
     TRB_CONFIGURE_ENDPOINT, TRB_DATA_STAGE, TRB_ENABLE_SLOT, TRB_EVALUATE_CONTEXT,
-    TRB_IDT, TRB_IOC, TRB_SETUP_STAGE, TRB_STATUS_STAGE, TRB_TRANSFER_EVENT,
+    TRB_IDT, TRB_IOC, TRB_ISP, TRB_NORMAL, TRB_SETUP_STAGE, TRB_STATUS_STAGE, TRB_TRANSFER_EVENT,
 };
 use honeyos_dma::DmaBuffer;
 use honeyos_pci::PciDevice;
@@ -16,7 +16,23 @@ use std::fs::OpenOptions;
 use std::io::Write;
 
 extern "C" {
+    fn mkdir(path: *const u8, mode: u32) -> i32;
     fn mkfifo(path: *const u8, mode: u32) -> i32;
+}
+
+fn emit_uevent(datagram: &[u8]) {
+    if let Ok(mut f) = OpenOptions::new().write(true).open("/dev/uevent") {
+        let _ = f.write_all(datagram);
+        let _ = f.flush();
+    }
+}
+
+pub struct ActiveInterruptEndpoint {
+    pub slot_id: u8,
+    pub ep_index: usize,
+    pub endpoint_number: u8,
+    pub max_packet_size: u16,
+    pub dma_buffer: DmaBuffer,
 }
 
 #[derive(Debug, Clone)]
@@ -49,6 +65,7 @@ pub struct XhciController {
     input_contexts: Vec<Option<DmaBuffer>>,
     ep0_rings: Vec<Option<TrbRing>>,
     endpoint_rings: Vec<Vec<Option<TrbRing>>>,
+    pub active_interrupt_endpoints: Vec<ActiveInterruptEndpoint>,
     pub port_count: u8,
     pub max_slots: u8,
 }
@@ -204,6 +221,7 @@ impl XhciController {
             input_contexts: (0..32).map(|_| None).collect(),
             ep0_rings: (0..32).map(|_| None).collect(),
             endpoint_rings: (0..32).map(|_| (0..32).map(|_| None).collect()).collect(),
+            active_interrupt_endpoints: Vec::new(),
             port_count: max_ports,
             max_slots: effective_slots,
         })
@@ -224,6 +242,8 @@ impl XhciController {
 
                 if predicate(&ev) {
                     return Ok(ev);
+                } else if ev.trb_type() == TRB_TRANSFER_EVENT {
+                    self.process_event(&ev);
                 }
             }
 
@@ -471,6 +491,40 @@ impl XhciController {
         Ok(())
     }
 
+    pub fn get_report_descriptor(
+        &mut self,
+        slot_id: u8,
+        iface_num: u8,
+        desc_len: u16,
+    ) -> Result<Vec<u8>, String> {
+        let len = if desc_len > 0 { desc_len } else { 4096 };
+        let mut buf = vec![0u8; len as usize];
+        let actual = self.control_transfer(
+            slot_id,
+            0x81,
+            6,
+            0x22 << 8,
+            iface_num as u16,
+            Some(&mut buf),
+            true,
+        )?;
+        buf.truncate(actual);
+        Ok(buf)
+    }
+
+    pub fn set_idle(&mut self, slot_id: u8, iface_num: u8, duration: u8) -> Result<(), String> {
+        self.control_transfer(
+            slot_id,
+            0x21,
+            0x0A,
+            (duration as u16) << 8,
+            iface_num as u16,
+            None,
+            false,
+        )?;
+        Ok(())
+    }
+
     pub fn enumerate_devices(&mut self) -> Vec<DiscoveredUsbDevice> {
         let mut devices = Vec::new();
 
@@ -693,7 +747,48 @@ impl XhciController {
 
             // Prepare VFS device nodes and endpoint paths in /dev/usb/<slot>/
             let dev_dir = format!("/dev/usb/{}", slot_id);
-            let _ = std::fs::create_dir_all(&dev_dir);
+            unsafe {
+                mkdir(b"/dev\0".as_ptr(), 0);
+                mkdir(b"/dev/usb\0".as_ptr(), 0);
+                let dev_dir_c = format!("{}\0", dev_dir);
+                mkdir(dev_dir_c.as_ptr(), 0);
+            }
+
+            // Handle HID interfaces: report descriptor and set_idle
+            for iface in &interfaces {
+                if iface.class == 3 {
+                    let desc_len = iface.hid_descriptor.as_ref().map_or(4096, |h| h.w_descriptor_length);
+                    match self.get_report_descriptor(
+                        slot_id,
+                        iface.interface_number,
+                        desc_len,
+                    ) {
+                        Ok(desc) => {
+                            let report_path = format!("{}/report_desc", dev_dir);
+                            match OpenOptions::new()
+                                .create(true)
+                                .write(true)
+                                .truncate(true)
+                                .open(&report_path)
+                            {
+                                Ok(mut f) => {
+                                    let _ = f.write_all(&desc);
+                                    let _ = f.flush();
+                                    println!("Wrote {} bytes of report descriptor to {}", desc.len(), report_path);
+                                }
+                                Err(e) => {
+                                    println!("Failed to open {} for writing: {}", report_path, e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            println!("Failed to get report descriptor for slot {}: {}", slot_id, e);
+                        }
+                    }
+                    let _ = self.set_idle(slot_id, iface.interface_number, 0);
+                }
+            }
+
             let info_path = format!("{}/info", dev_dir);
             if let Ok(mut f) = OpenOptions::new().create(true).write(true).truncate(true).open(&info_path) {
                 let vid = dev_desc.id_vendor;
@@ -707,6 +802,11 @@ impl XhciController {
                 let _ = writeln!(f, "manufacturer: {}", mfg);
                 let _ = writeln!(f, "product_name: {}", prod);
                 let _ = writeln!(f, "serial: {}", serial);
+                if let Some(iface0) = interfaces.first() {
+                    let _ = writeln!(f, "iface0_class: {}", iface0.class);
+                    let _ = writeln!(f, "iface0_subclass: {}", iface0.subclass);
+                    let _ = writeln!(f, "iface0_protocol: {}", iface0.protocol);
+                }
             }
 
             let ctrl_fifo = format!("{}/control\0", dev_dir);
@@ -722,11 +822,82 @@ impl XhciController {
                         format!("{}/ep{:02x}_out\0", dev_dir, ep.endpoint_number)
                     };
                     unsafe {
-                        mkfifo(ep_fifo.as_ptr(), 0);
+                        let res = mkfifo(ep_fifo.as_ptr(), 0);
+                        if res != 0 {
+                            println!("Warning: mkfifo failed ({}) for {}", res, ep_fifo.trim_end_matches('\0'));
+                        }
                     }
                 }
             }
             println!("Prepared VFS endpoint paths in /dev/usb/{}/", slot_id);
+
+            // Track active interrupt IN endpoints
+            for iface in &interfaces {
+                for ep in &iface.endpoints {
+                    if ep.is_in && ep.transfer_type == 3 {
+                        let ep_index = ((ep.endpoint_number as usize) * 2) - 1 + (if ep.is_in { 1 } else { 0 });
+                        if let Ok(dma_buf) = DmaBuffer::allocate(1) {
+                            let dma_phys = dma_buf.phys_addr();
+                            if let Some(ref mut ring) = self.endpoint_rings[slot_id as usize][ep_index] {
+                                let trb = Trb {
+                                    parameter: dma_phys as u64,
+                                    status: ep.max_packet_size as u32,
+                                    control: (TRB_NORMAL << 10) | TRB_IOC | TRB_ISP,
+                                };
+                                ring.enqueue(trb);
+                                self.regs.ring_doorbell(slot_id, (ep_index + 1) as u32);
+
+                                self.active_interrupt_endpoints.push(ActiveInterruptEndpoint {
+                                    slot_id,
+                                    ep_index,
+                                    endpoint_number: ep.endpoint_number,
+                                    max_packet_size: ep.max_packet_size,
+                                    dma_buffer: dma_buf,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Emit uevent to /dev/uevent
+            let iface0 = interfaces.first();
+            let iface0_class = iface0.map_or(0, |i| i.class);
+            let iface0_subclass = iface0.map_or(0, |i| i.subclass);
+            let iface0_protocol = iface0.map_or(0, |i| i.protocol);
+
+            let vid = dev_desc.id_vendor;
+            let pid = dev_desc.id_product;
+            let dev_class = dev_desc.b_device_class;
+            let dev_subclass = dev_desc.b_device_sub_class;
+            let dev_protocol = dev_desc.b_device_protocol;
+
+            let mut uevent = Vec::new();
+            uevent.extend_from_slice(b"ACTION=add\0");
+            uevent.extend_from_slice(
+                format!(
+                    "DEVPATH=/devices/pci/{:02x}:{:02x}.{}/usb/{}\0",
+                    self.pci_dev.bus, self.pci_dev.device, self.pci_dev.function, slot_id
+                )
+                .as_bytes(),
+            );
+            uevent.extend_from_slice(b"SUBSYSTEM=usb\0");
+            uevent.extend_from_slice(format!("DEVNAME=/dev/usb/{}\0", slot_id).as_bytes());
+            uevent.extend_from_slice(
+                format!("PRODUCT={:04x}/{:04x}/0000\0", vid, pid).as_bytes(),
+            );
+            uevent.extend_from_slice(
+                format!(
+                    "TYPE={}/{}/{}\0",
+                    dev_class, dev_subclass, dev_protocol
+                )
+                .as_bytes(),
+            );
+            uevent.extend_from_slice(format!("IFACE0_CLASS={}\0", iface0_class).as_bytes());
+            uevent.extend_from_slice(format!("IFACE0_SUBCLASS={}\0", iface0_subclass).as_bytes());
+            uevent.extend_from_slice(format!("IFACE0_PROTOCOL={}\0", iface0_protocol).as_bytes());
+            uevent.push(0);
+            emit_uevent(&uevent);
 
             devices.push(DiscoveredUsbDevice {
                 slot_id,
@@ -745,5 +916,78 @@ impl XhciController {
         }
 
         devices
+    }
+
+    pub fn process_event(&mut self, ev: &Trb) {
+        if ev.trb_type() != TRB_TRANSFER_EVENT {
+            return;
+        }
+        let slot_id = ev.slot_id();
+        let ep_id = ev.endpoint_id();
+
+        if let Some(pos) = self.active_interrupt_endpoints.iter().position(|e| {
+            e.slot_id == slot_id && ((e.ep_index + 1) as u8) == ep_id
+        }) {
+            let ep = &self.active_interrupt_endpoints[pos];
+            let residual = (ev.status & 0x00FF_FFFF) as usize;
+            let max_len = ep.max_packet_size as usize;
+            let len = if residual <= max_len && residual > 0 {
+                max_len - residual
+            } else if residual == 0 {
+                max_len
+            } else {
+                max_len
+            };
+
+            let data = ep.dma_buffer.as_slice()[..len].to_vec();
+            let fifo_path = format!("/dev/usb/{}/ep{:02x}_in", slot_id, ep.endpoint_number);
+            let dma_phys = ep.dma_buffer.phys_addr();
+            let max_packet_size = ep.max_packet_size;
+            let ep_index = ep.ep_index;
+
+            if len > 0 {
+                if let Ok(mut f) = OpenOptions::new().write(true).open(&fifo_path) {
+                    let _ = f.write_all(&data);
+                    let _ = f.flush();
+                }
+            }
+
+            // Re-enqueue Normal TRB and ring doorbell again
+            if let Some(ref mut ring) = self.endpoint_rings[slot_id as usize][ep_index] {
+                let trb = Trb {
+                    parameter: dma_phys as u64,
+                    status: max_packet_size as u32,
+                    control: (TRB_NORMAL << 10) | TRB_IOC | TRB_ISP,
+                };
+                ring.enqueue(trb);
+                self.regs.ring_doorbell(slot_id, (ep_index + 1) as u32);
+            }
+        }
+    }
+
+    pub fn process_pending_events(&mut self) -> bool {
+        let mut had_event = false;
+        while let Some(ev) = self.event_ring.fetch_event() {
+            had_event = true;
+            let erdp = (self.event_ring.current_dequeue_phys() as u64) | (1 << 3);
+            self.regs.write_erdp(erdp);
+            self.regs.write_iman(self.regs.read_iman() | 1); // Clear IP
+
+            self.process_event(&ev);
+        }
+        had_event
+    }
+
+    pub fn wait_next_event(&mut self) {
+        if !self.process_pending_events() {
+            if let Some(ref mut sub) = self.irq_sub {
+                if sub.wait().is_ok() {
+                    self.process_pending_events();
+                    return;
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            self.process_pending_events();
+        }
     }
 }

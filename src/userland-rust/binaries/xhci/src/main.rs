@@ -11,11 +11,17 @@ use std::io::Read;
 use xhci::XhciController;
 
 extern "C" {
+    fn mkdir(path: *const u8, mode: u32) -> i32;
     fn mkfifo(path: *const u8, mode: u32) -> i32;
 }
 
 fn main() {
     println!("Starting xHCI USB Driver (Rust)...");
+
+    unsafe {
+        mkdir(b"/dev\0".as_ptr(), 0);
+        mkdir(b"/dev/usb\0".as_ptr(), 0);
+    }
 
     let pci_dev = match PciScanner::find_xhci() {
         Ok(dev) => dev,
@@ -102,26 +108,90 @@ fn main() {
     unsafe {
         mkfifo(b"/dev/usb/control\0".as_ptr(), 0);
     }
-    let mut usb_control = OpenOptions::new()
-        .read(true)
-        .open("/dev/usb/control")
-        .expect("Failed to open /dev/usb/control");
+
+    // Concurrently monitor /dev/usb/control in a background thread
+    std::thread::spawn(|| {
+        let mut usb_control = match OpenOptions::new().read(true).open("/dev/usb/control") {
+            Ok(f) => f,
+            Err(e) => {
+                println!("Warning: Failed to open /dev/usb/control: {}", e);
+                return;
+            }
+        };
+
+        let mut buf = [0u8; 128];
+        loop {
+            match usb_control.read(&mut buf) {
+                Ok(n) if n > 0 => {
+                    // Future control commands (e.g. rescan, reset, etc.)
+                }
+                _ => {
+                    if let Ok(new_f) = OpenOptions::new().read(true).open("/dev/usb/control") {
+                        usb_control = new_f;
+                    } else {
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                    }
+                }
+            }
+        }
+    });
 
     // Signal init supervisor that xhci service is ready
     println!("ready");
 
     // Enter daemon event loop
-    let mut buf = [0u8; 128];
     loop {
-        match usb_control.read(&mut buf) {
-            Ok(n) if n > 0 => {
-                // Future control commands (e.g. rescan, reset, etc.)
-            }
-            _ => {
-                if let Ok(new_f) = OpenOptions::new().read(true).open("/dev/usb/control") {
-                    usb_control = new_f;
-                }
-            }
-        }
+        controller.wait_next_event();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_xhci_uevent_format() {
+        let bus = 0u8;
+        let device = 4u8;
+        let function = 0u8;
+        let slot_id = 1u8;
+        let vid = 0x1234u16;
+        let pid = 0x5678u16;
+        let dev_class = 0u8;
+        let dev_subclass = 0u8;
+        let dev_protocol = 0u8;
+        let iface0_class = 3u8;
+        let iface0_subclass = 1u8;
+        let iface0_protocol = 2u8;
+
+        let mut uevent = Vec::new();
+        uevent.extend_from_slice(b"ACTION=add\0");
+        uevent.extend_from_slice(
+            format!("DEVPATH=/devices/pci/{:02x}:{:02x}.{}/usb/{}\0", bus, device, function, slot_id).as_bytes(),
+        );
+        uevent.extend_from_slice(b"SUBSYSTEM=usb\0");
+        uevent.extend_from_slice(format!("DEVNAME=/dev/usb/{}\0", slot_id).as_bytes());
+        uevent.extend_from_slice(
+            format!("PRODUCT={:04x}/{:04x}/0000\0", vid, pid).as_bytes(),
+        );
+        uevent.extend_from_slice(
+            format!("TYPE={}/{}/{}\0", dev_class, dev_subclass, dev_protocol).as_bytes(),
+        );
+        uevent.extend_from_slice(format!("IFACE0_CLASS={}\0", iface0_class).as_bytes());
+        uevent.extend_from_slice(format!("IFACE0_SUBCLASS={}\0", iface0_subclass).as_bytes());
+        uevent.extend_from_slice(format!("IFACE0_PROTOCOL={}\0", iface0_protocol).as_bytes());
+        uevent.push(0);
+
+        assert_eq!(&uevent[uevent.len() - 2..], b"\0\0");
+
+        let s = std::str::from_utf8(&uevent[..uevent.len() - 2]).unwrap();
+        let parts: Vec<&str> = s.split('\0').collect();
+        assert_eq!(parts[0], "ACTION=add");
+        assert_eq!(parts[1], "DEVPATH=/devices/pci/00:04.0/usb/1");
+        assert_eq!(parts[2], "SUBSYSTEM=usb");
+        assert_eq!(parts[3], "DEVNAME=/dev/usb/1");
+        assert_eq!(parts[4], "PRODUCT=1234/5678/0000");
+        assert_eq!(parts[5], "TYPE=0/0/0");
+        assert_eq!(parts[6], "IFACE0_CLASS=3");
+        assert_eq!(parts[7], "IFACE0_SUBCLASS=1");
+        assert_eq!(parts[8], "IFACE0_PROTOCOL=2");
     }
 }

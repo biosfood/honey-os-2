@@ -107,7 +107,9 @@ extern uint32_t id_counter;
 extern void *runEnd;
 
 extern void processThread(ProcessThread *thread);
-extern ProcessThread *processLoadELF(Process *process, void *file_data);
+extern ProcessThread *processLoadELF(Process *process, void *file_data,
+                                     int argc, char **argv, int envc,
+                                     char **envp);
 extern Process *newProcess(Container *container, char *exe);
 
 extern char *copy_string_from_process(const Process *process,

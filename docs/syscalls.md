@@ -206,19 +206,23 @@ void (*syscallHandlers[])(ProcessThread *) = {
 ### 34: `handleExecSyscall`
 - **Arguments**:
   - `p0`: `int fd` (open file descriptor containing the ELF binary)
+  - `p1`: `char **argv` (user pointer to NULL-terminated argument array)
+  - `p2`: `char **envp` (user pointer to NULL-terminated environment array)
 - **Return Value**: Does not return on success; `-1` on error.
 - **Behavior**:
   - Validates `fd` from `openFileHandles`.
+  - Safely copies `argv` and `envp` string arrays from the calling process virtual memory into temporary kernel buffers before address space teardown.
   - Clears all existing threads in the process.
   - Updates `process_files[PROC_FILE_EXECUTABLE]` with the new binary path.
   - Unmaps and frees all previous `virtual_memory_entries` (decrements physical refcounts and frees physical pages when refcount hits 0).
   - Reads the ELF file data into memory.
-  - Calls `processLoadELF(process, file_data)`:
+  - Calls `processLoadELF(process, file_data, argc, argv, envc, envp)`:
     - Parses ELF32 header and program headers (`PT_LOAD`).
     - Maps program segments (`MEM_TYPE_PROGRAM_DATA`).
     - Sets up an 8MB virtual stack (`MEM_TYPE_STACK`).
-    - Builds initial stack frame: ELF auxiliary vectors (`AT_PHDR`, `AT_PHENT`, `AT_PHNUM`, `AT_PAGESZ`), `argv`, `envp`, `argc`.
+    - Builds initial stack frame: pushes environment strings and argument strings, aligns `%esp` to 16 bytes for System V i386 ABI compliance, pushes ELF auxiliary vectors (`AT_PHDR`, `AT_PHENT`, `AT_PHNUM`, `AT_NULL`), `envp` pointer array, `argv` pointer array, and `argc`.
     - Creates the initial `ProcessThread` with `esp` and `eip` pointing to the ELF entry point.
+  - Frees temporary kernel copies of argument and environment strings.
 
 ### 35: `handleSetThreadPointerSyscall`
 - **Arguments**:

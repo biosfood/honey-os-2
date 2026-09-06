@@ -90,8 +90,9 @@ void start_supervised_service(struct Service *svc) {
 
     pid_t pid = fork();
     if (!pid) {
-        // In child: redirect stdout to stdout_pipe[1]
+        // In child: redirect stdout and stderr to stdout_pipe[1]
         dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stdout_pipe[1], STDERR_FILENO);
 
         close(stdout_pipe[0]);
         close(stdout_pipe[1]);
@@ -154,6 +155,9 @@ int main() {
 
     struct Service pit_svc = { .name = "pit", .path = "/bin/pit" };
     start_supervised_service(&pit_svc);
+
+    struct Service devd_svc = { .name = "devd", .path = "/bin/devd" };
+    start_supervised_service(&devd_svc);
 
     struct Service pci_svc = { .name = "pci", .path = "/bin/pci" };
     start_supervised_service(&pci_svc);

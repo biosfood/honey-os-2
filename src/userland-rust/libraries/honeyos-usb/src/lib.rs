@@ -84,6 +84,7 @@ pub struct ParsedInterface {
     pub subclass: u8,
     pub protocol: u8,
     pub endpoints: Vec<ParsedEndpoint>,
+    pub hid_descriptor: Option<HidDescriptor>,
 }
 
 pub fn parse_string_descriptor(data: &[u8]) -> Option<String> {
@@ -146,7 +147,21 @@ pub fn parse_configuration(data: &[u8]) -> Option<(ConfigurationDescriptor, Vec<
                 subclass: iface_desc.b_interface_sub_class,
                 protocol: iface_desc.b_interface_protocol,
                 endpoints: Vec::new(),
+                hid_descriptor: None,
             });
+        } else if desc_type == 0x21 && length >= 9 {
+            // HID descriptor
+            let mut hid_desc = HidDescriptor::default();
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    data[offset..].as_ptr(),
+                    &mut hid_desc as *mut _ as *mut u8,
+                    std::mem::size_of::<HidDescriptor>(),
+                );
+            }
+            if let Some(ref mut iface) = current_interface {
+                iface.hid_descriptor = Some(hid_desc);
+            }
         } else if desc_type == 5 && length >= 7 {
             // Endpoint descriptor
             let mut ep_desc = EndpointDescriptor::default();
@@ -183,4 +198,39 @@ pub fn parse_configuration(data: &[u8]) -> Option<(ConfigurationDescriptor, Vec<
     }
 
     Some((config, interfaces))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_configuration_with_hid() {
+        let data: &[u8] = &[
+            // Configuration Descriptor (9 bytes, wTotalLength = 34)
+            0x09, 0x02, 0x22, 0x00, 0x01, 0x01, 0x00, 0xA0, 0x32,
+            // Interface Descriptor (9 bytes, class 3, subclass 1, proto 1)
+            0x09, 0x04, 0x00, 0x00, 0x01, 0x03, 0x01, 0x01, 0x00,
+            // HID Descriptor (9 bytes, type 0x21, report desc length = 0x3F)
+            0x09, 0x21, 0x11, 0x01, 0x00, 0x01, 0x22, 0x3F, 0x00,
+            // Endpoint Descriptor (7 bytes, EP1 IN, Interrupt, max packet 8)
+            0x07, 0x05, 0x81, 0x03, 0x08, 0x00, 0x0A,
+        ];
+
+        let (config, ifaces) = parse_configuration(data).unwrap();
+        assert_eq!(config.b_num_interfaces, 1);
+        assert_eq!(ifaces.len(), 1);
+        let iface = &ifaces[0];
+        assert_eq!(iface.interface_number, 0);
+        assert_eq!(iface.class, 3);
+        assert_eq!(iface.subclass, 1);
+        assert_eq!(iface.protocol, 1);
+        assert!(iface.hid_descriptor.is_some());
+        let hid = iface.hid_descriptor.unwrap();
+        assert_eq!(hid.b_descriptor_type, 0x21);
+        assert_eq!({ hid.w_descriptor_length }, 0x003F);
+        assert_eq!(iface.endpoints.len(), 1);
+        assert_eq!(iface.endpoints[0].endpoint_number, 1);
+        assert!(iface.endpoints[0].is_in);
+    }
 }

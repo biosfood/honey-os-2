@@ -138,7 +138,7 @@ void processThread(ProcessThread *thread) {
         current_thread = thread;
         runFunction();
         thread = current_thread;
-        if (!thread || thread->process->reap_info.exited) {
+        if (!thread || thread->process->reap_info.exited || thread->join_info.exited) {
             return;
         }
         memset(thread->threadProcessingState, 0, 32);

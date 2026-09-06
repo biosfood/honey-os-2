@@ -164,7 +164,74 @@ void handleExecSyscall(ProcessThread *thread) {
         return;
     }
     Process *process = thread->process;
-    // TODO: arguments transfer
+
+    // Safely copy argv and envp from calling process memory BEFORE unmapping!
+    int argc = 0;
+    char **kernel_argv = NULL;
+    if (thread->parameters[1] != 0) {
+        void *user_argv_base = PTR(thread->parameters[1]);
+        while (true) {
+            uint32_t user_str_ptr = 0;
+            memcpy_proc_to_kernel(process, user_argv_base + argc * sizeof(uint32_t),
+                                  (uint8_t *)&user_str_ptr, sizeof(uint32_t));
+            if (user_str_ptr == 0) {
+                break;
+            }
+            argc++;
+            if (argc > 1024) {
+                break;
+            }
+        }
+        if (argc > 0) {
+            kernel_argv = malloc(sizeof(char *) * argc);
+            for (int i = 0; i < argc; i++) {
+                uint32_t user_str_ptr = 0;
+                memcpy_proc_to_kernel(process, user_argv_base + i * sizeof(uint32_t),
+                                      (uint8_t *)&user_str_ptr, sizeof(uint32_t));
+                kernel_argv[i] = copy_string_from_process(process, PTR(user_str_ptr));
+                if (!kernel_argv[i]) {
+                    kernel_argv[i] = combineStrings("", "");
+                }
+            }
+        }
+    }
+
+    if (argc == 0) {
+        argc = 1;
+        kernel_argv = malloc(sizeof(char *) * 1);
+        kernel_argv[0] = combineStrings("", file_descriptor->path ? file_descriptor->path : "/init");
+    }
+
+    int envc = 0;
+    char **kernel_envp = NULL;
+    if (thread->parameters[2] != 0) {
+        void *user_envp_base = PTR(thread->parameters[2]);
+        while (true) {
+            uint32_t user_str_ptr = 0;
+            memcpy_proc_to_kernel(process, user_envp_base + envc * sizeof(uint32_t),
+                                  (uint8_t *)&user_str_ptr, sizeof(uint32_t));
+            if (user_str_ptr == 0) {
+                break;
+            }
+            envc++;
+            if (envc > 1024) {
+                break;
+            }
+        }
+        if (envc > 0) {
+            kernel_envp = malloc(sizeof(char *) * envc);
+            for (int i = 0; i < envc; i++) {
+                uint32_t user_str_ptr = 0;
+                memcpy_proc_to_kernel(process, user_envp_base + i * sizeof(uint32_t),
+                                      (uint8_t *)&user_str_ptr, sizeof(uint32_t));
+                kernel_envp[i] = copy_string_from_process(process, PTR(user_str_ptr));
+                if (!kernel_envp[i]) {
+                    kernel_envp[i] = combineStrings("", "");
+                }
+            }
+        }
+    }
+
     listClear(process->threads);
     process->threads = NULL;
 
@@ -214,8 +281,21 @@ void handleExecSyscall(ProcessThread *thread) {
     file_descriptor->file->file_system->type->read(
         file_descriptor->file, file_data, s.st_size, 0, NULL, file_descriptor,
         &bytes_read);
-    processLoadELF(process, file_data);
+    processLoadELF(process, file_data, argc, kernel_argv, envc, kernel_envp);
     free(file_data);
+
+    for (int i = 0; i < argc; i++) {
+        free(kernel_argv[i]);
+    }
+    if (kernel_argv) {
+        free(kernel_argv);
+    }
+    for (int i = 0; i < envc; i++) {
+        free(kernel_envp[i]);
+    }
+    if (kernel_envp) {
+        free(kernel_envp);
+    }
 }
 
 void reap_process(Process *process) {

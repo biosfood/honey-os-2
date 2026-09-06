@@ -50,6 +50,34 @@ void onInterrupt(void *cr2, void *cr3, uint32_t edi, uint32_t esi, uint32_t ebp,
            sizeof(newStack));
 }
 
+static void com1_write_char(char c) {
+    uint8_t status;
+    do {
+        asm volatile("inb %1, %0" : "=a"(status) : "Nd"((uint16_t)0x3FD));
+    } while ((status & 0x20) == 0);
+    asm volatile("outb %0, %1" : : "a"((uint8_t)c), "Nd"((uint16_t)0x3F8));
+}
+
+static void com1_write_str(const char *s) {
+    while (*s) {
+        if (*s == '\n') {
+            com1_write_char('\r');
+        }
+        com1_write_char(*s++);
+    }
+}
+
+static void com1_write_hex(uint32_t val) {
+    char buf[9];
+    buf[8] = '\0';
+    for (int i = 7; i >= 0; i--) {
+        uint8_t nibble = val & 0xF;
+        buf[i] = nibble < 10 ? ('0' + nibble) : ('a' + nibble - 10);
+        val >>= 4;
+    }
+    com1_write_str(buf);
+}
+
 void onException(void *cr2, void *cr3, uint32_t edi, uint32_t esi, uint32_t ebp, uint32_t _esp, uint32_t ebx, uint32_t edx, uint32_t ecx, uint32_t eax, uint32_t intNo, uint32_t errorCode,
                  uint32_t eip, uint32_t cs, uint32_t eflags, uint32_t esp) {
     if (intNo == 0x0E && (errorCode & 1) == 0) {
@@ -111,8 +139,13 @@ void onException(void *cr2, void *cr3, uint32_t edi, uint32_t esi, uint32_t ebp,
                     ;
             })
             ;
-        while (!physical || !mapping || !virtual)
-            ;
+        if (!physical || !mapping || !virtual) {
+            com1_write_str("\r\n[KERNEL PANIC] COW fault at CR2=0x");
+            com1_write_hex((uint32_t)cr2);
+            com1_write_str(" not found in VMAs! Terminating thread.\r\n");
+            terminate_thread(current_thread);
+            return;
+        }
         if (physical->refcount == 1) {
             for (uint32_t i = 0; i < physical->page_count; i++) {
                 PageTableEntry *entry =
@@ -131,6 +164,7 @@ void onException(void *cr2, void *cr3, uint32_t edi, uint32_t esi, uint32_t ebp,
             new_physical->page_count = physical->page_count;
             mapping->physical = new_physical;
             new_physical->refcount = 1;
+            mapping->copy_on_write = false;
             for (uint32_t i = 0; i < physical->page_count; i++) {
                 memcpy(mapTemporaryA(physical->physical + 4096 * i),
                        mapTemporaryB(new_physical->physical + 4096 * i), 4096);
@@ -145,8 +179,37 @@ void onException(void *cr2, void *cr3, uint32_t edi, uint32_t esi, uint32_t ebp,
         goto resume;
     }
 
-    while (1)
-        ;
+    com1_write_str("\r\n[KERNEL PANIC] Unhandled Exception 0x");
+    com1_write_hex(intNo);
+    com1_write_str(" (errorCode=0x");
+    com1_write_hex(errorCode);
+    com1_write_str(") at EIP=0x");
+    com1_write_hex(eip);
+    com1_write_str(" CR2=0x");
+    com1_write_hex((uint32_t)cr2);
+    com1_write_str(" CR3=0x");
+    com1_write_hex((uint32_t)cr3);
+    com1_write_str(" CS=0x");
+    com1_write_hex(cs);
+    com1_write_str(" ESP=0x");
+    com1_write_hex(esp);
+    com1_write_str(" in Process PID=");
+    if (current_thread && current_thread->process) {
+        com1_write_hex(current_thread->process->id);
+        com1_write_str(" '");
+        if (current_thread->process->process_files[PROC_FILE_EXECUTABLE].data) {
+            com1_write_str((char *)current_thread->process->process_files[PROC_FILE_EXECUTABLE].data);
+        }
+        com1_write_str("'\r\n");
+        process_exit(current_thread->process, 128 + intNo);
+    } else {
+        com1_write_str("NONE\r\n");
+        if (current_thread) {
+            terminate_thread(current_thread);
+        }
+    }
+    while (1);
+    return;
 
 resume:
     // TODO: make sure there actually is enough space on the stack here....

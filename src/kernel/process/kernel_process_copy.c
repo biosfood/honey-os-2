@@ -1,4 +1,5 @@
 #include <process.h>
+#include <stddef.h>
 
 void *copy_from_process_to_kernel(const Process *process, void *threadRead,
                                   const uint32_t bytes_to_transfer) {
@@ -69,19 +70,33 @@ void copy_between_processes(const Process *from_process, void *from,
 }
 
 char *copy_string_from_process(const Process *process, const void *const from) {
+    if (!process || !from) {
+        return NULL;
+    }
     uint32_t len = 0;
     const uint8_t *current_from = from;
-    const uint8_t *read = mapTemporaryA(getPhysicalAddress(
-        process->memory_information.pageDirectory, (void *)current_from));
+    void *phys = getPhysicalAddress(
+        process->memory_information.pageDirectory, (void *)current_from);
+    if (!phys) {
+        return NULL;
+    }
+    const uint8_t *read = mapTemporaryA(phys);
     while (*read) {
         len++;
         read++;
         current_from++;
         if ((U32(read) & 0xFFF) == 0) {
-            read = mapTemporaryA(
-                getPhysicalAddress(process->memory_information.pageDirectory,
-                                   (void *)current_from));
+            phys = getPhysicalAddress(process->memory_information.pageDirectory,
+                                      (void *)current_from);
+            if (!phys) {
+                break;
+            }
+            read = mapTemporaryA(phys);
         }
     }
-    return copy_from_process_to_kernel(process, from, len + 1);
+    char *res = copy_from_process_to_kernel(process, from, len + 1);
+    if (res) {
+        res[len] = '\0';
+    }
+    return res;
 }

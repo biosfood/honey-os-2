@@ -4,12 +4,15 @@ members = [
     "libraries/honeyos-pci",
     "libraries/honeyos-dma",
     "libraries/honeyos-usb",
+    "libraries/honeyos-hid",
     "binaries/pic",
     "binaries/pci",
     "binaries/pit",
     "binaries/pty",
     "binaries/serial",
     "binaries/xhci",
+    "binaries/devd",
+    "binaries/hid",
 ]
 resolver = "2"
 

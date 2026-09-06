@@ -51,6 +51,11 @@ impl Trb {
     pub fn slot_id(&self) -> u8 {
         ((self.control >> 24) & 0xFF) as u8
     }
+
+    #[inline]
+    pub fn endpoint_id(&self) -> u8 {
+        ((self.control >> 16) & 0x1F) as u8
+    }
 }
 
 pub struct TrbRing {

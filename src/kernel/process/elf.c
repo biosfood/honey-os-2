@@ -9,7 +9,8 @@
 #define AT_PHENT 4 /* Size of one phdr */
 
 void build_starting_stack(ProcessThread *thread, void *start_position,
-                          uintptr_t phdr_vaddr, int phnum, int phentsize) {
+                          uintptr_t phdr_vaddr, int phnum, int phentsize,
+                          int argc, char **argv, int envc, char **envp) {
     Process *process = thread->process;
     // build the initial stack, for starters just with a single page
     PhysicalMemoryEntry *physical = get_single_page_physical_memory_entry();
@@ -47,19 +48,50 @@ void build_starting_stack(ProcessThread *thread, void *start_position,
 
     listAdd(&process->virtual_memory_entries, virtual);
 
-    char *stack_ptr = (char *)mapTemporaryA(physical->physical) + 4096;
+    char **user_argv_ptrs = argc > 0 ? malloc(sizeof(char *) * argc) : NULL;
+    char **user_envp_ptrs = envc > 0 ? malloc(sizeof(char *) * envc) : NULL;
 
-    // first argument to argv: program name, stored on the stack
-    const char *prog_name = "/init";
-    uint32_t name_len = strlen(prog_name) + 1;
-    stack_ptr -= name_len;
-    memcpy(prog_name, stack_ptr, name_len);
-    char *user_prog_name_ptr =
-        (char *)(virtual->virtual + virtual->size - name_len);
+    void *stack_page_base = mapTemporaryA(physical->physical);
+    char *stack_ptr = (char *)stack_page_base + 4096;
+    char *stack_top_kernel = stack_ptr;
+    char *stack_top_virtual = (char *)(virtual->virtual + virtual->size);
 
-    stack_ptr = (char *)((uintptr_t)stack_ptr & -16L);
+    // 1. Push environment variable strings (if any)
+    for (int i = envc - 1; i >= 0; i--) {
+        uint32_t len = strlen(envp[i]) + 1;
+        stack_ptr -= len;
+        memcpy(envp[i], stack_ptr, len);
+        uintptr_t offset = stack_top_kernel - stack_ptr;
+        user_envp_ptrs[i] = stack_top_virtual - offset;
+    }
 
-    // Push the Auxiliary Vector (auxv).
+    // 2. Push argument strings
+    for (int i = argc - 1; i >= 0; i--) {
+        uint32_t len = strlen(argv[i]) + 1;
+        stack_ptr -= len;
+        memcpy(argv[i], stack_ptr, len);
+        uintptr_t offset = stack_top_kernel - stack_ptr;
+        user_argv_ptrs[i] = stack_top_virtual - offset;
+    }
+
+    // Table elements to push:
+    // - Auxv: 4 pairs (AT_PHDR, phdr_vaddr, AT_PHNUM, phnum, AT_PHENT, phentsize, AT_NULL, 0) = 8 words
+    // - envp NULL sentinel = 1 word
+    // - envp pointers = envc words
+    // - argv NULL sentinel = 1 word
+    // - argv pointers = argc words
+    // - argc = 1 word
+    uint32_t total_table_words = argc + envc + 11;
+    uint32_t total_table_bytes = total_table_words * sizeof(uint32_t);
+
+    // Align stack pointer so user %esp at _start (pointing to argc) is 16-byte aligned.
+    uintptr_t cur_esp = (uintptr_t)(stack_ptr - total_table_bytes);
+    uintptr_t aligned_esp = cur_esp & ~15L;
+    uintptr_t padding = cur_esp - aligned_esp;
+    stack_ptr -= padding;
+    memset(stack_ptr, 0, padding);
+
+    // 3. Push Auxiliary Vector (auxv) in reverse order
     stack_ptr -= sizeof(uintptr_t);
     *(uintptr_t *)stack_ptr = 0;
     stack_ptr -= sizeof(uintptr_t);
@@ -77,34 +109,60 @@ void build_starting_stack(ProcessThread *thread, void *start_position,
     stack_ptr -= sizeof(uintptr_t);
     *(uintptr_t *)stack_ptr = AT_PHDR;
 
-    // envp (NULL).
+    // 4. Push envp NULL sentinel
     stack_ptr -= sizeof(char *);
     *(char **)stack_ptr = NULL;
 
-    // Push argv.
-    stack_ptr -= sizeof(char *);
-    *(char **)stack_ptr = NULL; // argv[1]
-    stack_ptr -= sizeof(char *);
-    *(char **)stack_ptr = user_prog_name_ptr; // argv[0]
+    // 5. Push envp pointers in reverse order (envc - 1 down to 0)
+    for (int i = envc - 1; i >= 0; i--) {
+        stack_ptr -= sizeof(char *);
+        *(char **)stack_ptr = user_envp_ptrs[i];
+    }
 
-    // Push argc.
+    // 6. Push argv NULL sentinel
+    stack_ptr -= sizeof(char *);
+    *(char **)stack_ptr = NULL;
+
+    // 7. Push argv pointers in reverse order (argc - 1 down to 0)
+    for (int i = argc - 1; i >= 0; i--) {
+        stack_ptr -= sizeof(char *);
+        *(char **)stack_ptr = user_argv_ptrs[i];
+    }
+
+    // 8. Push argc
     stack_ptr -= sizeof(int);
-    *(int *)stack_ptr = 1;
+    *(int *)stack_ptr = argc;
 
-    // start position: kernel will RET as the last step for startup
+    // 9. Push start position for kernel sysexit return
     stack_ptr -= sizeof(void *);
     *(void **)stack_ptr = start_position;
 
-    uintptr_t final_offset =
-        ((char *)mapTemporaryA(physical->physical) + 4096) - stack_ptr;
-    thread->esp = virtual->virtual + virtual->size - final_offset;
+    if (user_argv_ptrs) {
+        free(user_argv_ptrs);
+    }
+    if (user_envp_ptrs) {
+        free(user_envp_ptrs);
+    }
+
+    uintptr_t final_offset = stack_top_kernel - stack_ptr;
+    thread->esp = stack_top_virtual - final_offset;
 }
 extern void *functionsStart;
 extern void *functionsEnd;
 
 PhysicalMemoryEntry kernel_functions_physical = {.physical = 0, 4, 0};
 
-ProcessThread *processLoadELF(Process *process, void *file_data) {
+ProcessThread *processLoadELF(Process *process, void *file_data, int argc,
+                             char **argv, int envc, char **envp) {
+    char *default_argv[] = {"/init"};
+    if (argc <= 0 || argv == NULL) {
+        argc = 1;
+        argv = default_argv;
+    }
+    if (envc < 0 || envp == NULL) {
+        envc = 0;
+        envp = NULL;
+    }
     ElfHeader *header = file_data;
     ProgramHeader *programHeader =
         file_data + header->programHeaderTablePosition;
@@ -187,7 +245,8 @@ ProcessThread *processLoadELF(Process *process, void *file_data) {
 
     build_starting_stack(thread, PTR(header->entryPosition), phdr_virtual,
                          header->programHeaderEntryCount,
-                         header->programHeaderEntrySize);
+                         header->programHeaderEntrySize,
+                         argc, argv, envc, envp);
 
     foreach (
         process->virtual_memory_entries, VirtualMemoryEntry *,
